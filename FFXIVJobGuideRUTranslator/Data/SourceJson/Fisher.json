@@ -1,0 +1,491 @@
+{
+	"Gathering Update": "Последнее обновление: 27/06/2024",
+	"Action 01": {
+		"name": "Bait",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/fd681c2a74c01583917e24c512a462d1479a6b17.png",
+		"level": "1",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет выбрать наживку для рыбной ловли."
+	},
+	"Action 02": {
+		"name": "Cast",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/f4337fd382dfffcbaf2054230462011fe4e0f52a.png",
+		"level": "1",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет забросить удочку и начать ловить рыбу."
+	},
+	"Action 03": {
+		"name": "Hook",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/b9dd5730a40e8b1f6ed4113ed19e36233c4c48ae.png",
+		"level": "1",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Попытка подсечь рыбу, клюющую на приманку."
+	},
+	"Action 04": {
+		"name": "Quit",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/a2f29602541420df9d5d7e0228bc07b0a814ed7e.png",
+		"level": "1",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Закончить рыбалку и сложить снаряжение."
+	},
+	"Action 05": {
+		"name": "Cast Light",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/2b33e2d95e2ccb7a3f826cafd9c66c328a89fdba.png",
+		"level": "1",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Подсветить кончик удочки."
+	},
+	"Action 06": {
+		"name": "Rest",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/bd437fcf489fc1f5a052b454232a3addc9154bce.png",
+		"level": "1",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Прекращает рыбалку, но держит снаряжение наготове."
+	},
+	"Action 07": {
+		"name": "Chum",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/3e05f0e7b0f57678b8f0f96464258d0692daba7a.png",
+		"level": "5",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Уменьшает количество времени, в течение которого клюнет следующая рыба.<br/><br/>Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity)."
+	},
+	"Action 08": {
+		"name": "Sneak",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/73126204ec348cb686770ea6f2e7a6815f2c1088.png",
+		"level": "8",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Бесшумная походка, позволяет избегать противников на четыре уровня выше персонажа."
+	},
+	"Action 09": {
+		"name": "Patience",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/aba80a61180247b04c144f291367ea4edca17887.png",
+		"level": "15",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Увеличивает шанс поймать крупную рыбу на 50%, но снижает шанс успешного Hook на 40%.<br/>Продолжительность: 60 сек.<br/><br/>Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity)."
+	},
+	"Action 10": {
+		"name": "Powerful Hookset",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/c6bd7969b9f937b8be12b51a2840dd2f877a27e8.png",
+		"level": "15",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "50 GP",
+		"content": "Отменяет статус Inefficient Hooking. Не действует на некоторых рыб со слабым укусом."
+	},
+	"Action 11": {
+		"name": "Precision Hookset",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/0e2cbefdbf79bf74a0c9c17e44b7294598b07999.png",
+		"level": "15",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "50 GP",
+		"content": "Отменяет статус Inefficient Hooking. Не действует на некоторых рыб с сильным укусом."
+	},
+	"Action 12": {
+		"name": "Thaliak's Favor",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/a5287077d39984bde869ec43151a2e75e914a89a.png",
+		"level": "15",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Восстанавливает 150 GP.<br/>Стоимость Angler's Art: 3"
+	},
+	"Action 13": {
+		"name": "Release",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/b798f0513fccba93715c1f147398be94ec19e8e3.png",
+		"level": "22",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет отпускать рыбу обратно в водоем (включая всю ту рыбу, что впоследствии будет поймана в текущем местоположении персонажа).<br/>Не действует на рыб, которые еще не открыты в Fish Guide."
+	},
+	"Action 14": {
+		"name": "Release List",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/17241e91c1bcf02644198dfdd787a318a48cce8c.png",
+		"level": "22",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет выбирать рыбу, которая будет автоматически отпущена после поимки из текущей лунки.<br/>Настройки сбросятся, если убрать удочку.<br/>Не действует на рыб, которые еще не открыты в Fish Guide."
+	},
+	"Action 15": {
+		"name": "Mooch",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/29a524212811616bcd616f51afd702ac3110e7aa.png",
+		"level": "25",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Использует пойманную определенную крупную рыбу, чтобы привлечь более крупную добычу."
+	},
+	"Action 16": {
+		"name": "Snagging",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/5e3fa943f43aa07bf222222964fb86889017c93d.png",
+		"level": "36",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Добавляет на леску дополнительные крючки, позволяя ловить обычно неуловимую рыбу и предметы."
+	},
+	"Action 17": {
+		"name": "Makeshift Bait",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/425ad259ecf98cac2574146b8911af50dfd0315b.png",
+		"level": "48",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет использовать Mooch даже с рыбой среднего размера.<br/>Продолжительность: 145 сек.<br/>Стоимость Angler's Art: 5<br/>Умение не действует на рыбу, пойманную до использования."
+	},
+	"Action 18": {
+		"name": "Collect",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/e8fe00d5992643cc36300bed52ff904f91f2b507.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "50",
+		"classification": "Cпособность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет ловить рыбу в качестве collectables предметов."
+	},
+	"Action 19": {
+		"name": "Fish Eyes",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/af8ec82fa8718ed59ec94bdf58a2ffc0ec6e144d.png",
+		"level": "57",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "550 GP",
+		"content": "Открывает пять чувств персонажа к окружающему миру, позволяя обнаружить рыбу в выбранном водоеме без учета времени ее обычной активности.<br/>Не действует на некоторых рыб.<br/>Продолжительность: 60 сек.<br/><br/>Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity)."
+	},
+	"Action 20": {
+		"name": "Patience II",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/8a9ceaa7811a2de7a9bcf5508b08525a3d9dd602.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/4e582b713fa/",
+		"level": "60",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "560 GP",
+		"content": "Увеличивает шанс поймать крупную рыбу на 80%, но снижает шанс успешного Hook на 75%. Также повышается вероятность поимки рыбы среднего размера и большей длины.<br/>Продолжительность: 145 сек.<br/><br/>Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity)."
+	},
+	"Action 21": {
+		"name": "Gig",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/8f70a8e911836c50c12685f15bc381e9c4e81e76.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "61",
+		"classification": "DoL способность",
+		"recast": "1 сек.",
+		"cost": "0 GP",
+		"content": "Попытки поймать рыбу с помощью gig, увеличивают настороженность (wariness) других рыб поблизости.<br/>Если поймать больше рыбы за одну попытку, настороженность (wariness) увеличивается медленнее."
+	},
+	"Action 22": {
+		"name": "Mooch II",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/a7c39361660d714a1e8e9f56e2b39fcce0585507.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/97710910082/",
+		"level": "63",
+		"classification": "DoL способность",
+		"recast": "180 сек.",
+		"cost": "100 GP",
+		"content": "Использует определенную рыбу среднего размера, насаженную на крючок, чтобы привлечь еще более крупную добычу.<br/>Продолжительность: 15 сек. после поимки рыбы."
+	},
+	"Action 23": {
+		"name": "Veteran Trade",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/98833e6785bdfea1d9576781df5a1bf2578ed11f.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "63",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Предотвращает повторное появление той же рыбы, которая только что была поймана. Не действует на некоторых рыб."
+	},
+	"Action 24": {
+		"name": "Vital Sight",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/c98432108cd78880a610090b507f4395dcc2ba61.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "64",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Обостряет зрение, облегчая поиск рыбы.<br/>Стоимость Angler's Art: 2<br/>Эффект заканчивается, когда персонаж заканчиваете spearfishing в текущем месте."
+	},
+	"Action 25": {
+		"name": "Double Hook",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/482579008323667631dd8898ecfb16fd5af65282.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/991ed168b84/",
+		"level": "65",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "400 GP",
+		"content": "Позволяет поймать две или более рыб за один бросок. Улов определяется типом рыбы и рейтингом сбора (gathering rating).<br/>Некоторые рыбы не могут быть пойманы в двойном экземпляре."
+	},
+	"Action 26": {
+		"name": "Salvage",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/deb8d1c822d4c9a2ff9914eb4e08cf0ecc4fb198.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "67",
+		"classification": "Cпособность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Позволяет иногда обнаруживать карты сокровищ (treasure maps) во время spearfishing."
+	},
+	"Action 27": {
+		"name": "Nature's Bounty",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/859326562f5d3c47169eefa803838a91504813b6.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "69",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Увеличивает шанс поймать крупную рыбу во время следующей попытки spearfishing.<br/>Шанс выудить крупную рыбу увеличивается в зависимости от рейтинга восприятия (perception rating) персонажа."
+	},
+	"Action 28": {
+		"name": "Surface Slap",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/c59960289cfdb2727bfa0ed770d49936e89c2083.png",
+		"level": "71",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Предотвращает возможность выловить ту же рыбы, которая только что была поймана. Не действует на некоторых рыб.<br/>Продолжительность: 15 сек. после поимки рыбы<br/>Эффект заканчивается после подсечки рыбы. Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity).<br/>Заменяет эффект Identical Cast при использовании."
+	},
+	"Action 29": {
+		"name": "Baited Breath",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/131a6b73df0f7d46f23936f9b9c5de3e0a2d4856.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "75",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "300 GP",
+		"content": "Позволяет персонажу задержать дыхание, что снижает настороженность (wariness) ближайших рыб.<br/>Не может быть использовано, если настороженность (wariness) превышает определенный порог."
+	},
+	"Action 30": {
+		"name": "Identical Cast",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/63bdf6ff7a3babb965606cd2f67baeb7db706eaa.png",
+		"level": "79",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "350 GP",
+		"content": "Гарантирует возможность выловить ту же рыбы, которая только что была поймана. Не действует на некоторых рыб.<br/>Продолжительность: 15 сек. после поимки рыбы<br/>Эффект заканчивается после подсечки рыбы и не может быть использован для последующих забросов.<br/>Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity).<br/>Эффект отменяется, если та же рыба не может быть поймана в текущем месте ловли.<br/>Заменяет эффект Surface Slap при использовании."
+	},
+	"Action 31": {
+		"name": "Prize Catch",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/f2c10acf2d4a6570cac997bd33ad971dc6a1fa65.png",
+		"level": "81",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Гарантирует, что следующий улов будет рыбой большого размера.<br/>Эффект заканчивается после подсечки рыбы. Отменяет возможность использования текущей рыбы, как наживки (mooching opportunity)."
+	},
+	"Action 32": {
+		"name": "Electric Current",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/ef80cb120a0b5b783e36fb7bf9354197e006a708.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "85",
+		"classification": "DoL cпособность",
+		"recast": "1.5 сек.",
+		"cost": "0 GP",
+		"content": "Электризует воду и захватывает всех рыб, находящихся в поле зрения персонажа.<br/>С увеличением количества пойманных рыб повышается настороженность (wariness) других рыб поблизости.<br/>Для выполнения требуется шкала улова (catch counter) равная 10. Может быть выполнено только один раз за попытку spearfishing."
+	},
+	"Action 33": {
+		"name": "Triple Hook",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/e8d312a5a81a019a7f42306a8337b4d714f4d866.png",
+		"level": "90",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "700 GP",
+		"content": "Поймайте три или более рыб за один бросок. Улов зависит от вида рыбы и рейтинга сбора (gathering rating). Некоторые рыбы не могут быть пойманы в тройном экземпляре."
+	},
+	"Action 34": {
+		"name": "Spareful Hand",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/6e70a78ba36b5d9accef550d3d0c38cb1bb907e5.png",
+		"level": "91",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Сохраняет некоторых крупных рыб в качестве приманки для последующего использования.<br/>Swimbait можно использовать в качестве приманки до тех пор, пока персонаж остается в текущем месте ловли.<br/>Swimbait можно использовать даже после умений, отменяющих mooching рыбы.<br/>Не может быть использовано под действием эффекта Surface Slap или Identical Cast."
+	},
+	"Action 35": {
+		"name": "Big-game Fishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/1c39fc9822bb7142d212dd54f75c649f85ec8b4e.png",
+		"level": "95",
+		"classification": "DoL cпособность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Увеличивает вероятность того, что следующая пойманная рыба будет особенно крупной.<br/>Шанс поймать особенно крупный экземпляр увеличивается в зависимости от perception rating персонажа.<br/>Стоимость Angler's Art: 2<br/><br/>Отменяет возможность использовать mooching."
+	},
+	"Action 36": {
+		"name": "Ambitious Lure",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/938745795fd402d99f672fdde8f22d9dcf09868f.png",
+		"level": "100",
+		"classification": "DoL cпособность",
+		"recast": "2.5 сек.",
+		"cost": "10 GP",
+		"content": "Привлекает крупную рыбу (large-sized fish) и увеличивает шансы на ее поимку. Иногда гарантирует, что персонаж поймает крупную рыбу.<br/>Можно использовать до 3 раз во время рыбалки, каждое использование увеличивает эффективность и стоимость GP.<br/>Может также привлекать редкие виды рыб. Можно также использовать с рыбой, пойманной с помощью Powerful Hookset.<br/>Первое использование: 10 GP<br/>Второе использование: 20 GP<br/>Третье использование: 30 GP"
+	},
+	"Action 37": {
+		"name": "Modest Lure",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/ce6df1ffdd5b814bd4bc3d1808a5eee6dd93f0e0.png",
+		"level": "100",
+		"classification": "DoL cпособность",
+		"recast": "2.5 сек.",
+		"cost": "10 GP",
+		"content": "Привлекает мелкую рыбу (small-sized fish) и увеличивает шансы на ее поимку. Время от времени гарантирует, что персонаж поймает небольшую рыбу.<br/>Можно использовать до 3 раз во время рыбалки, каждое использование увеличивает эффективность и стоимость GP.<br/>Может также привлекать редкие виды рыб. Можно также использовать с рыбой, пойманной с помощью Precision Hookset.<br/>Первое использование: 10 GP<br/>Второе использование: 20 GP<br/>Третье использование: 30 GP"
+	},
+	"Gatherer Role 01": {
+		"name": "Fathom",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/25c121565b7b524ea7d352578b32e7cbb3619dfe.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "61",
+		"classification": "Способность",
+		"recast": "-",
+		"content": "Исследует воду, чтобы найти teeming waters. Умение активируется автоматически, как только персонаж сменит класс на рыбака (Fisher)."
+	},
+	"Gatherer Role 02": {
+		"name": "Shark Eye",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/057878bbaaa91b1cc12aa6bf9961bb4db3a11ced.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "61",
+		"classification": "Способность",
+		"recast": "20 сек.",
+		"content": "Позволяет персонажу обнаружить teeming waters, а также отображает на миникарте направление до ближайшей точки сбора в пределах зоны действия умения.<br/>Можно использовать только при активном умении Fathom.<br/>Продолжительность: 15 сек."
+	},
+	"Gatherer Role 03": {
+		"name": "Shark Eye II",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/ba2c0246951332391634392a60c83238476066e0.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "65",
+		"classification": "Способность",
+		"recast": "20 сек.",
+		"content": "Позволяет персонажу обнаружить teeming waters высокого уровня.<br/>А также отображает на миникарте направление до ближайшей точки сбора в пределах зоны действия умения. Можно использовать только при активном умении Fathom.<br/>Продолжительность: 15 сек."
+	},
+	"Gatherer Role 04": {
+		"name": "Truth of Oceans",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/a28b7a6d8877d95b8fd62c101bc6344230b4f20e.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "65",
+		"classification": "Способность",
+		"recast": "-",
+		"content": "Отображает на миникарте местоположение неизвестных, легендарных и скрытые swimming shadows."
+	},
+	"Gatherer Traits 01": {
+		"name": "Gulleye",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/210944d7f19cb281b0fc4a0bd662883be7201702.png",
+		"level": "15",
+		"content": "Позволяет находить места для рыбной ловли того же уровня или ниже уровня персонажа."
+	},
+	"Gatherer Traits 02": {
+		"name": "Angler's Art",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/1934f8bede208aaf0b1aee8662e5f7324040359e.png",
+		"level": "15",
+		"content": "Поимка крупной рыбы может дать стак Angler's Art.<br/>Максимум стаков: 10<br/>Шанс получения эффекта Angler's Art различается для обычной и подводной рыбалки."
+	},
+	"Gatherer Traits 03": {
+		"name": "Auto Sneak",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/88a06cdc6848aba66a09aee2014ed7b326761207.png",
+		"level": "27",
+		"content": "Автоматически активирует эффект Sneak при смене класса на рыбака.<br/>Эффект также автоматически активируется при смене области.<br/>Sneak не будет автоматически активирован в зонах, где это умение не может быть использовано."
+	},
+	"Gatherer Traits 04": {
+		"name": "Dunefishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/2c8ff841299f3f304adce053e1679b6040fad16f.png",
+		"level": "35",
+		"content": "Позволяет вылавливать рыбу в песках пустыни."
+	},
+	"Gatherer Traits 05": {
+		"name": "Double Mooching",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/79088e0e45fd9d87418ea1fb0875f47c30840edd.png",
+		"level": "40",
+		"content": "Позволяет применить умение mooch к рыбе, пойманой с помощью этого умения."
+	},
+	"Gatherer Traits 06": {
+		"name": "Skyfishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/c7bec3121c5733f68617b5a5f6a1f64de8262925.png",
+		"level": "45",
+		"content": "Позволяет вылавливать рыбу в облаках."
+	},
+	"Gatherer Traits 07": {
+		"name": "Fisher's Instinct",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/5e7bdb8a4fb04812d970bbf7baac7dc153ce08fe.png",
+		"level": "50",
+		"content": "Когда персонаж ловит определенную рыбу, находясь под эффектом Fisher Intuition или Spearfisher Intuition, сбрасывается длительность эффекта.<br/>Шанс срабатывания этого эффекта различен для разных рыб."
+	},
+	"Gatherer Traits 08": {
+		"name": "Cloudfishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/6ab4ae19f8560551aed698e8a45b1ef34d97e387.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/b1a601213ce/",
+		"level": "53",
+		"content": "Позволяет вылавливать рыбу на парящих островах."
+	},
+	"Gatherer Traits 09": {
+		"name": "Hellfishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/508f822b8db28c3a65889a0dcd4b06eb25b59575.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/49976e9e6ab/",
+		"level": "55",
+		"content": "Позволяет вылавливать рыбу в магме."
+	},
+	"Gatherer Traits 10": {
+		"name": "Aetherfishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/d1a18a21b225219a8f3c0856154f161ad384112b.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/1457665ba30/",
+		"level": "58",
+		"content": "Позволяет вылавливать рыбу в эфирохимических (aetherochemical) бассейнах."
+	},
+	"Gatherer Traits 11": {
+		"name": "Auto Fathom",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/674d528c62ce4ae38474f23dba87ece5c87c394f.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "61",
+		"content": "Автоматически активирует умение Fathom при смене класса на рыбака."
+	},
+	"Gatherer Traits 12": {
+		"name": "Saltfishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/2dab694b2c82e20fa17360b2fd10d0e4d0cfa96c.png",
+		"level": "68",
+		"content": "Позволяет вылавливать рыбу в соленых озерах."
+	},
+	"Gatherer Traits 13": {
+		"name": "Enhanced GP Regeneration",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/f466b24159a91be068a5d01125e0d1e5227e2785.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/ec5ce24881e/",
+		"level": "70",
+		"content": "Повышает базовую скорость регенерации GP на один."
+	},
+	"Gatherer Traits 14": {
+		"name": "One with the Ocean",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/80e1cc93bba83bcdd0f3c55d8dbb5a369f27544d.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/569821285da/",
+		"level": "70",
+		"content": "Автоматически активирует умение Truth of Oceans при смене класса на рыбака."
+	},
+	"Gatherer Traits 15": {
+		"name": "Enhanced GP Regeneration II",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/2fc1977f1e8dfb39ea28b441ba73c301c95cfbf6.png",
+		"level": "80",
+		"content": "Повышает базовую скорость регенерации GP на два."
+	},
+	"Gatherer Traits 16": {
+		"name": "Enhanced GP Regeneration III",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/4a4015c00b3aa6988841e551aadfaf1294bd5d4b.png",
+		"level": "83",
+		"content": "Повышает базовую скорость регенерации GP на три."
+	},
+	"Gatherer Traits 17": {
+		"name": "Starfishing",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/e7489ba24ffee35b41063539e269ea12e0eb2678.png",
+		"level": "89",
+		"content": "Позволяет вылавливать рыбу в космосе."
+	}
+}

@@ -1,0 +1,148 @@
+using System;
+using System.IO;
+using System.Threading.Tasks;
+using Dalamud.Game.Addon.Lifecycle;
+using Dalamud.Game.Command;
+using Dalamud.IoC;
+using Dalamud.Interface.Windowing;
+using Dalamud.Plugin;
+using Dalamud.Plugin.Services;
+using FFXIVJobGuideRUTranslator.Data;
+using FFXIVJobGuideRUTranslator.Hooks;
+using FFXIVJobGuideRUTranslator.Windows;
+
+namespace FFXIVJobGuideRUTranslator;
+
+public sealed class Plugin : IDalamudPlugin
+{
+    [PluginService] internal static IDalamudPluginInterface PluginInterface { get; private set; } = null!;
+    [PluginService] internal static ICommandManager CommandManager { get; private set; } = null!;
+    [PluginService] internal static IPluginLog Log { get; private set; } = null!;
+    [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
+    [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
+    [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
+
+    private const string CommandName = "/jgru";
+
+    public Configuration Configuration { get; }
+    public TranslationRepository Repository { get; }
+
+    public bool IsUpdating { get; private set; }
+    public string LastUpdateStatus { get; private set; } = string.Empty;
+
+    public readonly WindowSystem WindowSystem = new("FFXIVJobGuideRUTranslator");
+    private ConfigWindow ConfigWindow { get; }
+
+    private AbilityTextTranslator? translator;
+    private readonly string overrideDirectory;
+
+    public Plugin()
+    {
+        Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+
+        overrideDirectory = Path.Combine(PluginInterface.ConfigDirectory.FullName, "translations");
+
+        Repository = new TranslationRepository(DataManager, Log, overrideDirectory);
+        Repository.Reload();
+
+        translator = new AbilityTextTranslator(AddonLifecycle, GameGui, Log, Configuration, Repository);
+
+        ConfigWindow = new ConfigWindow(this);
+        WindowSystem.AddWindow(ConfigWindow);
+
+        CommandManager.AddHandler(CommandName, new CommandInfo(OnCommand)
+        {
+            HelpMessage = "Открывает настройки перевода умений. \"/jgru update\" - обновить перевод с GitHub.",
+        });
+
+        PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
+        PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
+
+        Log.Information("[JobGuideRU] Плагин загружен.");
+    }
+
+    public void Dispose()
+    {
+        PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
+        PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUi;
+
+        WindowSystem.RemoveAllWindows();
+        ConfigWindow.Dispose();
+
+        translator?.Dispose();
+        translator = null;
+
+        CommandManager.RemoveHandler(CommandName);
+    }
+
+    public void ApplyAddonRegistrations() => translator?.ApplyRegistrations();
+
+    public void ReloadBundledTranslations()
+    {
+        // Удаляем скачанные файлы, чтобы репозиторий вернулся к бандлу, встроенному в сборку.
+        try
+        {
+            if (Directory.Exists(overrideDirectory))
+                Directory.Delete(overrideDirectory, recursive: true);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "[JobGuideRU] Не удалось удалить папку со скачанным переводом.");
+        }
+
+        Configuration.LastUpdateUtc = null;
+        Configuration.Save();
+        Repository.Reload();
+        LastUpdateStatus = "Возвращён встроенный в плагин перевод.";
+    }
+
+    public void UpdateTranslationsAsync()
+    {
+        if (IsUpdating)
+            return;
+
+        IsUpdating = true;
+        LastUpdateStatus = string.Empty;
+
+        Task.Run(async () =>
+        {
+            try
+            {
+                var count = await TranslationUpdater.UpdateAsync(overrideDirectory, Log).ConfigureAwait(false);
+                Configuration.LastUpdateUtc = DateTime.UtcNow;
+                Configuration.Save();
+                Repository.Reload();
+                LastUpdateStatus = $"Готово: скачано {count} файлов, сопоставлено {Repository.TotalResolved} из {Repository.TotalParsed} записей.";
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "[JobGuideRU] Не удалось обновить перевод.");
+                LastUpdateStatus = $"Ошибка обновления: {ex.Message}";
+            }
+            finally
+            {
+                IsUpdating = false;
+            }
+        });
+    }
+
+    private void OnCommand(string command, string args)
+    {
+        var trimmed = args.Trim();
+        if (string.Equals(trimmed, "update", StringComparison.OrdinalIgnoreCase))
+        {
+            UpdateTranslationsAsync();
+            return;
+        }
+
+        if (string.Equals(trimmed, "reload", StringComparison.OrdinalIgnoreCase))
+        {
+            ReloadBundledTranslations();
+            return;
+        }
+
+        ToggleConfigUi();
+    }
+
+    public void ToggleConfigUi() => ConfigWindow.Toggle();
+}

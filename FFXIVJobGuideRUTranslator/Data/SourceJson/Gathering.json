@@ -1,0 +1,612 @@
+{
+	"Gathering Update": "Последнее обновление: 24/03/2025",
+	"Action 01": {
+		"name": {
+			"MIN": "Sharp Vision",
+			"BTN": "Field Mastery"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/7776104ec581999d5730940e0a07a592701f438e.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/0265d8e360e249da9c0c803380211a54eff755df.png"
+		},
+		"level": "4",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "50 GP",
+		"content": "Увеличивает шанс получения предметов при сборе на 5%. Увеличение не применяется к предметам с шансом получения 0%."
+	},
+	"Action 02": {
+		"name": {
+			"MIN": "Sharp Vision II",
+			"BTN": "Field Mastery II"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/b21c26edb473ba54365dbdfb8f885e488502a62c.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/a4d564eec48761cf0bdb306809dcffa2c9defba4.png"
+		},
+		"level": "5",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Увеличивает шанс получения предметов при сборе на 15%. Увеличение не применяется к предметам с шансом получения 0%."
+	},
+	"Action 03": {
+		"name": "Sneak",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/857ec6bb92c1ba7fbd2f9e4ed9488da157549645.png",
+		"level": "8",
+		"classification": "Способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Бесшумная походка, позволяет избегать противников на четыре уровня выше персонажа."
+	},
+	"Action 04": {
+		"name": {
+			"MIN": "Sharp Vision III",
+			"BTN": "Field Mastery III"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/0bbe373c893aec8c5749ca11e7ac5e9a8ae6385c.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/d5eee45cdfee5fe5ca6dbce39b5e5599cc533803.png"
+		},
+		"level": "10",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "250 GP",
+		"content": "Увеличивает шанс получения предмета при сборе на 50%. Не сработает при сборе, если шанс добычи 0%."
+	},
+	"Action 05": {
+		"name": "Mountaineer's Gift I",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/17b81385fde3996f5dceec7f69eb6ed921724987.png",
+		"level": "15",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "50 GP",
+		"content": "Увеличивает шанс срабатывания Gatherer's Boon на 10%. Не сработает при сборе, если шанс добычи 0%."
+	},
+	"Action 06": {
+		"name": "The Twelve's Bounty",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/bb72a73a8e85e73c677498bc89a2067a12369ee0.png",
+		"level": "20",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "150 GP",
+		"content": "Увеличивает количество собираемых shard, crystal и cluster yields на 3.<br/>Не сработает, если место сбора не содержит shard, crystal, and cluster yields."
+	},
+	"Action 07": {
+		"name": {
+			"MIN": "Clear Vision",
+			"BTN": "Flora Mastery"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/b7b81c8844b39356dcbdc504a217e2d74292fa54.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/4e1e0d924f3d9e00c977704d0beba0b41048fa4e.png"
+		},
+		"level": "23",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "50 GP",
+		"content": "Увеличивает шанс получения предмета для следующей попытки сбора на 15%. Не сработает при сборе, если шанс добычи 0%."
+	},
+	"Action 08": {
+		"name": {
+			"MIN": "Bountiful Yield",
+			"BTN": "Bountiful Harvest"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/a4a18e80eb9ea8dad19fdb1e43f4c13006b5e944.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/3f321357853ff740411e2f412254bf17b3cd17a2.png"
+		},
+		"level": "24",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Увеличивает количество получаемых предметов при следующей попытке сбора на один."
+	},
+	"Action 09": {
+		"name": {
+			"MIN": "Solid Reason",
+			"BTN": "Ageless Words"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/5e3f52fe624609f40fd81e9a1a20c659cb12d327.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/0d3e3f07c1db9344e96da54fefc6d66eb54f26fd.png"
+		},
+		"level": "25",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "300 GP",
+		"content": "Дает дополнительную попытку сбора. При сборе collectables восстанавливает 1 integrity.<br/>Дополнительный эффект: 50% шанс получить эффект Eureka Moment"
+	},
+	"Action 10": {
+		"name": {
+			"MIN": "King's Yield",
+			"BTN": "Blessed Harvest"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/1a5c0826e1c078faa733829e0b054697b5fc1410.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/816cd5383d58f2d2a6b8209e50c9d7e5bfc67484.png"
+		},
+		"level": "30",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "400 GP",
+		"content": "Увеличивает количество получаемого при сборе предмета на один."
+	},
+	"Action 11": {
+		"name": {
+			"MIN": "King's Yield II",
+			"BTN": "Blessed Harvest II"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/6ec7a46292dacd2b0cc19fadbccfd94dd019f206.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/31ba3194b41a2575399c9882e6d28757353f66b9.png"
+		},
+		"level": "40",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "500 GP",
+		"content": "Увеличивает количество получаемых предметов при следующей попытке сбора на два."
+	},
+	"Action 12": {
+		"name": "Collect",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/8532ffbf30e00d3dd48a425b7a9dfca9e9b7071e.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/ea33c3737679e3186707e1d05d3a801f8ddbfaa9.png"
+		},
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "50",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Собирает collectable предмет с его текущим collectability рейтингом.<br/>Уменьшает integrity на 1."
+	},
+	"Action 13": {
+		"name": "Scour",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/18ff13b278138c7690b35e333b1cb24f60d43710.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "50",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Повышает collectability предмета. Увеличение определяется рейтингом сбора (gathering rating).<br/>Уменьшает integrity на 1."
+	},
+	"Action 14": {
+		"name": "Brazen Woodsman",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/8d4871671a3cae1003e78d29ca68f91154298811.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "50",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Увеличивает collectability предмета. Увеличение происходит случайным образом в диапазоне от 50 до 150% от эффективности Scour.<br/>Уменьшает integrity на 1."
+	},
+	"Action 15": {
+		"name": "Meticulous Woodsman",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/f5dd83f5f2fa5b10a3cfe821f6e626b8922c6505.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "50",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Повышает collectability предмета. Увеличение составляет 75% от эффективности Scour.<br/>Уменьшает integrity на 1. При использовании есть шанс, что integrity не изменится, который зависит от вашего рейтинга сбора (gathering rating)."
+	},
+	"Action 16": {
+		"name": "Scrutiny",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/2173762adfe1521ca6aa0fbaf0735e578a1664b5.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "50",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Улучшает увеличение collectability следующего предмета. Эффект зависит от вашего рейтинга восприятия (perception rating)."
+	},
+	"Action 17": {
+		"name": {
+			"MIN": "Mountaineer's Gift II",
+			"BTN": "Pioneer's Gift II"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/14c45e87b9fa8abe6b16104a9aeddc9bfc19ef15.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/16ba049dbedae727a1b23092305e31b522b39011.png"
+		},
+		"level": "50",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Увеличивает шанс срабатывания Gatherer's Boon на 30%. Не сработает при сборе, если шанс добычи 0%.<br/>Эффект может использоваться одновременно с Mountaineer's Gift I."
+	},
+	"Action 18": {
+		"name": {
+			"MIN": "Luck of the Mountaineer",
+			"BTN": "Luck of the Pioneer"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/7c0957f7505a33a744e32691ecdddc4cb9829707.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/486674c8800105f65bb2f5952b297d4270ab39ad.png"
+		},
+		"eorzeadb": {
+			"MIN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/2ec172f3e49/",
+			"BTN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/54baece3283/"
+		},
+		"level": "55",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Позволяет увидеть скрытые предметы во время сбора."
+	},
+	"Action 19": {
+		"name": {
+			"MIN": "Bountiful Yield II",
+			"BTN": "Bountiful Harvest II"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/cd913af6a15b37894f412f47e1b35b1c2186b490.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/4c6a426da3a9efd03c300805a7caed3c669ccdbb.png"
+		},
+		"eorzeadb": {
+			"MIN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/9e9f9b79ae4/",
+			"BTN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/b82804dfe4c/"
+		},
+		"level": "68",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Увеличивает количество предметов, получаемых при следующей попытке сбора, на один, два или три.<br/>Количество зависит от рейтинга сбора (gathering rating)."
+	},
+	"Action 20": {
+		"name": "The Giving Land",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/f53d7b0308353a7431a21f378514cb26f5d66a88.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/df152c10ca865203a7cc2cf92bb4ee370759a00c.png"
+		},
+		"level": "74",
+		"classification": "DoL способность",
+		"recast": "180 сек.",
+		"cost": "200 GP",
+		"content": "Увеличивает количество собираемых shard, crystal и cluster yields на случайное количество.<br/>Эффект может использоваться одновременно с The Twelve's Bounty.<br/>Не сработает, если место сбора не дает shard, crystal and cluster yields."
+	},
+	"Action 21": {
+		"name": {
+			"MIN": "Nald'thal's Tidings",
+			"BTN": "Nophica's Tidings"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/af6088be601b6f04dac012c2f0513e0dfaa5088f.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/3f95f73a80dd817a1292f631a1f49af5f2ba4011.png"
+		},
+		"level": "81",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "200 GP",
+		"content": "Увеличивает количество предметов, получаемых с помощью эффекта Gatherer's Boon, на 1."
+	},
+	"Action 22": {
+		"name": "Collector's Focus",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/7a5ecb2f6a3913825d1626c2c058364e545af96d.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/ef19938212dd2651c4ccffff2c920dfe565aec27.png"
+		},
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "85",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Увеличивает шанс срабатывания Collector's Intuition на 75% при следующем использовании collectable умения."
+	},
+	"Action 23": {
+		"name": "Wise to the World",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/0bdb0683c158d431e6274cf6ef2100532d1a40ea.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/e125df92eba06fc3a0e5b0d14e8f6c7f41033546.png"
+		},
+		"level": "90",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "0 GP",
+		"content": "Дает дополнительную попытку сбора или восстанавливает 1 integrity при сборе collectables предметов.<br/>Можно использовать только под действием эффекта Eureka Moment."
+	},
+	"Action 24": {
+		"name": "Priming Touch",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/1c0b33077e7d53177839a3e2571ca1f66892a0db.png",
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "95",
+		"classification": "DoL способность",
+		"recast": "-",
+		"cost": "100 GP",
+		"content": "Удваивает шанс того, что следующее использование Meticulous Prospector не повлияет на integrity.<br/>Не влияет на увеличенный шанс от бонусов к точкам сбора или Collector's High Standard."
+	},
+	"Gatherer Role 01": {
+		"name": {
+			"MIN": "Prospect",
+			"BTN": "Triangulate"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/99f88ea5d023e55c25eb9505c72060f24094a8d3.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/2934bfbab2e8cdb9d6539a22c867b3b9ccb57c5c.png"
+		},
+		"level": "1",
+		"classification": "Способность",
+		"recast": "-",
+		"content": {
+			"MIN": "Показывает на миникарте ближайшие точки сбора mineral deposits и rocky outcrops. Умение активируется автоматически, как только персонаж сменит класс на шахтера (Miner).",
+			"BTN": "Показывает на миникарте ближайшие точки сбора mature trees и lush vegetation. Умение активируется автоматически, как только персонаж сменит класс на ботаника (Botanist)."
+		}
+	},
+	"Gatherer Role 02": {
+		"name": {
+			"MIN": "Lay of the Land",
+			"BTN": "Arbor Call"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/80f7ca5ee8fe5169804a5eaddce7066288848754.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/f535ce3b68e6952b486d979bb0f6602cc8838b47.png"
+		},
+		"level": "3",
+		"classification": "Способность",
+		"recast": "20 сек.",
+		"content": {
+			"MIN": "Позволяет персонажу обнаружить mineral deposit или rocky outcrop, а также отображает на миникарте направление до ближайшей точки сбора в пределах зоны действия умения. Можно использовать только при активном умении Prospect.<br/>Продолжительность: 15 сек.",
+			"BTN": "Позволяет персонажу обнаружить mature tree или lush vegetation, а также отображает на миникарте направление до ближайшей точки сбора в пределах зоны действия умения. Можно использовать только при активном умении Triangulate.<br/>Продолжительность: 15 сек."
+		}
+	},
+	"Gatherer Role 03": {
+		"name": {
+			"MIN": "Lay of the Land II",
+			"BTN": "Arbor Call II"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/b2888c088441cb7d159650bdde285283787ce0ed.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/d7d127c4546e2ec471fc3ae73fe74771d886c962.png"
+		},
+		"level": "5",
+		"classification": "Способность",
+		"recast": "20 сек.",
+		"content": {
+			"MIN": "Позволяет персонажу обнаружить высокоуровневые mineral deposit или rocky outcrop. А также отображает на миникарте направление до ближайшей точки сбора в пределах зоны действия умения. Можно использовать только при активном умении Prospect.<br/>Продолжительность: 15 сек.",
+			"BTN": "Позволяет персонажу обнаружить высокоуровневое mature tree или lush vegetation, а также отображает на миникарте направление до ближайшей точки сбора в пределах зоны действия умения. Можно использовать только при активном умении Triangulate.<br/>Продолжительность: 15 сек."
+		}
+	},
+	"Gatherer Role 04": {
+		"name": {
+			"MIN": "Truth of Mountains",
+			"BTN": "Truth of Forests"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/91c11ae6c308a90e29cca02b71a7df86ba227202.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/0c0f6fb9e3d7890de8ca9c7f1a9de1b285ff8266.png"
+		},
+		"level": "45",
+		"classification": "Способность",
+		"recast": "-",
+		"content": {
+			"MIN": "Отображает на миникарте местоположение неизвестных, легендарных и скрытых mineral deposits или rocky outcrops.",
+			"BTN": "Отображает на миникарте местоположение неизвестных, легендарных и скрытых mature trees или lush vegetation."
+		}
+	},
+	"Gatherer Traits 01": {
+		"name": {
+			"MIN": "Auto Prospect",
+			"BTN": "Auto Triangulate"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/4149203bb05e1affa53346bc6d6a71ad131be5fd.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/1de3c53c65570f33ed2771a4830651ded755599b.png"
+		},
+		"level": "2",
+		"content": {
+			"MIN": "Автоматически активирует эффект Prospect при смене класса на шахтера (Miner).",
+			"BTN": "Автоматически активирует эффект Triangulate при смене класса на ботаника (Botanist)."
+		}
+	},
+	"Gatherer Traits 02": {
+		"name": {
+			"MIN": "Stone Whisperer",
+			"BTN": "Tree Whisperer"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/bfc77abfde5ab4a5c2a1ec69a0382f78cb633e31.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/b964dd311a3b06619c1e03b9debfd85848bce248.png"
+		},
+		"level": "11",
+		"content": {
+			"MIN": "Позволяет лучше определить характеристики mineral deposit или rocky outcrop, благодаря чему персонаж повышает шанс сбора предметов при соблюдении условий.",
+			"BTN": "Позволяет лучше определить свойства mature tree или patch of lush vegetation, благодаря чему персонаж повышает шанс сбора предметов при соблюдении условий."
+		}
+	},
+	"Gatherer Traits 03": {
+		"name": {
+			"MIN": "Stone Whisperer II",
+			"BTN": "Tree Whisperer II"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/cc8ea9910a9f3f8c1a55ad7e27b621bacaa5ac72.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/5ba4bdf7dd3f04389934ca6292447fe0a6a4fc86.png"
+		},
+		"level": "16",
+		"content": {
+			"MIN": "Позволяет лучше определить характеристики mineral deposit или rocky outcrop, что увеличивает количество попыток сбора при соблюдении условий.",
+			"BTN": "Позволяет лучше определить свойства mature tree или patch of lush vegetation, что увеличивает количество попыток сбора при соблюдении условий."
+		}
+	},
+	"Gatherer Traits 04": {
+		"name": {
+			"MIN": "Stone Whisperer III",
+			"BTN": "Tree Whisperer III"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/03b8c085d5efc68fd844aa3f4a49174a59e649e5.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/d4f91e8adaa7ec8bdf5200199e2a7de3a4b4a430.png"
+		},
+		"level": "21",
+		"content": {
+			"MIN": "Позволяет лучше определить характеристики mineral deposit или rocky outcrop, что увеличивает шанс на получение дополнительных предметов во время сбора при соблюдении условий.",
+			"BTN": "Позволяет лучше определить свойства mature tree or patch или lush vegetation, что увеличивает шанс на получение дополнительных предметов во время сбора при соблюдении условий."
+		}
+	},
+	"Gatherer Traits 05": {
+		"name": {
+			"MIN": "Stone Whisperer IV",
+			"BTN": "Tree Whisperer IV"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/4d4d7c99e5c033a1c83d37acc40f5bbe927f09e9.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/736783c4a65cf898d07ff2ae724951b9fa482c3e.png"
+		},
+		"level": "26",
+		"content": {
+			"MIN": "Позволяет лучше определить характеристики mineral deposit или rocky outcrop, что увеличивает количество получаемых предметов во время сбора при соблюдении условий.",
+			"BTN": "Позволяет лучше определить свойства mature tree or patch или lush vegetation, что увеличивает количество получаемых предметов во время сбора при соблюдении условий."
+		}
+	},
+	"Gatherer Traits 06": {
+		"name": "Auto Sneak",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/f98b5dd5c60e001b2d94c0d07adc22f18051dcef.png",
+		"level": "27",
+		"content": "Автоматически активирует эффект Sneak при выборе класса. Эффект также автоматически активируется при смене области.<br/>Sneak не будет автоматически активирован в зонах, где это умение не может быть использовано."
+	},
+	"Gatherer Traits 07": {
+		"name": "Enhanced Twelve's Bounty",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/5b97ef539c4e2ef7afb85e0eac9357bd3573e402.png",
+		"level": "41",
+		"content": "Умение Twelve's Bounty распространяется на crystals."
+	},
+	"Gatherer Traits 08": {
+		"name": "Nymeia's Ward",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/76e38f577e56a43ee9829bbb41f5d51434b37846.png",
+		"level": "42",
+		"content": "С некоторой вероятностью увеличивает количество получаемых предметов во время сбора, включая crystals."
+	},
+	"Gatherer Traits 09": {
+		"name": "Enhanced Twelve's Bounty II",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/14602e003f3c1e2bbe86ab7f9b52c36724987b1b.png",
+		"level": "50",
+		"content": "Умение Twelve's Bounty распространяется на clusters."
+	},
+	"Gatherer Traits 10": {
+		"name": {
+			"MIN": "Stone Whisperer V",
+			"BTN": "Tree Whisperer V"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/11a6f74d96ef8836dd6f9d087615de9b022d8cc6.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/32e7f2486c089f0cee987c197793eef17f8247ff.png"
+		},
+		"eorzeadb": {
+			"MIN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/0a9f7c076e6/",
+			"BTN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/8d620eecdda/"
+		},
+		"level": "53",
+		"content": {
+			"MIN": "Позволяет лучше оценить характеристики mineral deposit или rocky outcrop, что еще больше повышает шансы сбора при соблюдении условий.",
+			"BTN": "Позволяет лучше определить свойства mature tree или patch of lush vegetation, что еще больше повышает шансы сбора при соблюдении условий."
+		}
+	},
+	"Gatherer Traits 11": {
+		"name": {
+			"MIN": "One with the Mountain",
+			"BTN": "One with the Forest"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/37ba5cceb87bd4fe0a5ef5c5a37deac402f1983f.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/b71b1bdeaf3b5c5bde55e3e3ca39ebd728c28473.png"
+		},
+		"level": "60",
+		"content": {
+			"MIN": "Автоматически активирует эффект Truth of Mountains при смене класса на шахтера.",
+			"BTN": "Автоматически активирует эффект Truth of Forests при смене класса на ботаника."
+		}
+	},
+	"Gatherer Traits 12": {
+		"name": {
+			"MIN": "Bountiful Yield Mastery",
+			"BTN": "Bountiful Harvest Mastery"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/3b7aabf37919114cbe798aae89fd14c73cd06fa3.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/52c530e3310b7ea3251d37ddd2b1cc016fa23058.png"
+		},
+		"eorzeadb": {
+			"MIN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/9e9f9b79ae4/",
+			"BTN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/b82804dfe4c/"
+		},
+		"level": "68",
+		"content": {
+			"MIN": "Улучшает умение Bountiful Yield до Bountiful Yield II.",
+			"BTN": "Улучшает умение Bountiful Harvest до Bountiful Harvest II."
+		}
+	},
+	"Gatherer Traits 13": {
+		"name": "Enhanced GP Regeneration",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/b44bd8618c529e36b97da49919aa1323be53693c.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/c75a70e368036171f19496196ebe9476363d1611.png"
+		},
+		"eorzeadb": {
+			"MIN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/03c4eb77b3a/",
+			"BTN": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/66987f9e4f2/"
+		},
+		"level": "70",
+		"content": "Повышает базовую скорость регенерации GP на единицу."
+	},
+	"Gatherer Traits 14": {
+		"name": "Enhanced Twelve's Bounty III",
+		"skill_icon": "/Assets/images/DoHDoL/SkillJob/Gathering/d6918b648c805c0f0dea6ab00ba5a708fc52d017.png",
+		"level": "71",
+		"content": "Увеличивает базовое количество получаемых во время сбора предметов от Twelve's Bounty на один."
+	},
+	"Gatherer Traits 15": {
+		"name": "Enhanced GP Regeneration II",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/d3d062609ff81acca36fb4495a6ca35d2176aaa5.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/fa40bc44fd467e38b4ea5e42146b66a94280fbdb.png"
+		},
+		"level": "80",
+		"content": "Повышает базовую скорость регенерации GP на два. При сборе повышает базовый уровень регенерации на один."
+	},
+	"Gatherer Traits 16": {
+		"name": "Enhanced GP Regeneration III",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/16bf614f64f74f878ed125c6f7d9f20e5ea844cd.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/6a69da189a44cfbe829dad69310586ca3d99f07e.png"
+		},
+		"level": "83",
+		"content": "Повышает базовую скорость регенерации GP на три. При сборе повышает базовый уровень регенерации на один."
+	},
+	"Gatherer Traits 17": {
+		"name": {
+			"MIN": "Enhanced Solid Reason",
+			"BTN": "Enhanced Ageless Words"
+		},
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/6f9a22350075f3e7b3ffe6aada8c17c7e77b9846.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/798c31e3df6051fc3e762458f09090038f6ab970.png"
+		},
+		"level": "90",
+		"content": {
+			"MIN": "Дает умению Solid Reason 50% шанс на получение игроком эффекта Eureka Moment.",
+			"BTN": "Дает умению Ageless Words 50% шанс на получение игроком эффекта Eureka Moment."
+		}
+	},
+	"Gatherer Traits 18": {
+		"name": "Revisit",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/663d79ba01de16b8c6050604ac1b2ff2c60d8bbf.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/65d6a139e00d6e2743cf716d2f672d5d2e2da5bb.png"
+		},
+		"level": "91",
+		"content": "После истощения точки сбора с некоторым шансом полностью восстанавливается шкала integrity или gathering attempts.<br/>GP также полностью восстанавливается, но все эффекты собирателя прекращают свое действие.<br/>Эффект не срабатывает в точках сбора определенного типа, например, которые могут встречаться в levequests."
+	},
+	"Gatherer Traits 19": {
+		"name": "Collector's High Standard",
+		"skill_icon": {
+			"MIN": "/Assets/images/DoHDoL/SkillJob/Gathering/57f0c5155877e1323e79c4e3a7388e1b4f014b39.png",
+			"BTN": "/Assets/images/DoHDoL/SkillJob/Gathering/3b3a32464ee2b7ebb1d9d46bdf3c75b5512cb2a5.png"
+		},
+		"eorzeadb": "https://eu.finalfantasyxiv.com/lodestone/playguide/db/quest/a94b1abd066/",
+		"level": "100",
+		"content": {
+			"MIN": "С некоторым шансом улучшает эффект Collector Standard до Collector High Standard, гарантируя, что Brazen Prospector повысит collectability с максимальной эффективностью.<br/>Увеличивает шанс, что Meticulous Prospector не повлияет на шкалу integrity на 40%.",
+			"BTN": "С некоторым шансом улучшает эффект Collector Standard до Collector High Standard, гарантируя, что Brazen Prospector повысит collectability с максимальной эффективностью.<br/>Увеличивает шанс, что Meticulous Woodsman не повлияет на шкалу integrity на 40%."
+		}
+	}
+}
