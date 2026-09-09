@@ -124,11 +124,15 @@ public sealed class TranslationRepository
     /// </summary>
     private void ResolveActionIds(List<TranslationEntry> parsed)
     {
+        // В отличие от CraftAction, лист Action не хранит текст описания сам - тот лежит
+        // в отдельном листе ActionTransient (та же нумерация RowId), таким уж устроена игра.
+        var actionDescriptions = BuildActionTransientDescriptions();
+
         TryResolveSheet<Lumina.Excel.Sheets.Action>(
             "Action",
             row => row.RowId,
             row => row.Name.ToString(),
-            row => row.Description.ToString());
+            row => actionDescriptions.TryGetValue(row.RowId, out var description) ? description : string.Empty);
 
         TryResolveSheet<Lumina.Excel.Sheets.CraftAction>(
             "CraftAction",
@@ -184,6 +188,30 @@ public sealed class TranslationRepository
                 log.Warning(ex, $"[JobGuideRU] Ошибка при сопоставлении с листом {sheetLabel}.");
             }
         }
+    }
+
+    /// <summary>RowId -> английское описание из ActionTransient (там же нумерация, что и в Action).</summary>
+    private Dictionary<uint, string> BuildActionTransientDescriptions()
+    {
+        var result = new Dictionary<uint, string>();
+        try
+        {
+            var sheet = dataManager.GetExcelSheet<Lumina.Excel.Sheets.ActionTransient>(ClientLanguage.English);
+            if (sheet is null)
+            {
+                log.Warning("[JobGuideRU] Лист ActionTransient недоступен (English) - описания боевых умений искать будет не по чему.");
+                return result;
+            }
+
+            foreach (var row in sheet)
+                result[row.RowId] = row.Description.ToString();
+        }
+        catch (Exception ex)
+        {
+            log.Warning(ex, "[JobGuideRU] Ошибка при чтении листа ActionTransient.");
+        }
+
+        return result;
     }
 
     public bool TryGetByActionId(uint actionId, out IReadOnlyList<TranslationEntry> entries)

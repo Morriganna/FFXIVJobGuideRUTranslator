@@ -82,9 +82,9 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
 
         try
         {
-            // args.Addon оборачивает адрес окна (AtkUnitBasePtr). Если эта строка не компилируется в вашей
-            // версии Dalamud - замените на (AtkUnitBase*)args.Addon.Address или (AtkUnitBase*)(nint)args.Addon.
-            var addon = (AtkUnitBase*)args.Addon;
+            // args.Addon - это AtkUnitBasePtr (обёртка без прямой зависимости от ClientStructs),
+            // берём голый адрес через .Address и приводим его к настоящему указателю.
+            var addon = (AtkUnitBase*)args.Addon.Address;
             if (addon is null)
                 return;
 
