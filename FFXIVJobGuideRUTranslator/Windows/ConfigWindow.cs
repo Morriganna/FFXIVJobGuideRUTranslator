@@ -134,9 +134,11 @@ public class ConfigWindow : Window, IDisposable
     private void DrawDebugTab()
     {
         ImGui.TextWrapped(
-            "Список боевых умений (лист Action) текущей работы персонажа и статус их сопоставления с " +
-            "переводом. Нужно быть в игре персонажем - список строится по вашей активной работе на момент " +
-            "нажатия \"Сканировать\". Крафт/сбор (CraftAction) сюда пока не входят.");
+            "Список умений, УНИКАЛЬНЫХ для текущей работы персонажа (вкладки \"Job\" в Actions&Traits " +
+            "и в PvP Actions), и статус их сопоставления с переводом. Общие Role-умения (на несколько " +
+            "работ одной роли, обычный или PvP) и Quick Chat намеренно не включены. Нужно быть в игре " +
+            "персонажем - список строится по вашей активной работе на момент нажатия \"Сканировать\". " +
+            "Крафт/сбор (CraftAction) сюда пока не входят.");
 
         ImGui.Spacing();
 
@@ -188,10 +190,11 @@ public class ConfigWindow : Window, IDisposable
         const ImGuiTableFlags tableFlags = ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg |
                                             ImGuiTableFlags.ScrollY | ImGuiTableFlags.Resizable;
 
-        if (ImGui.BeginTable("##jgru_debug_table", 4, tableFlags, new Vector2(0, 300)))
+        if (ImGui.BeginTable("##jgru_debug_table", 5, tableFlags, new Vector2(0, 300)))
         {
             ImGui.TableSetupColumn("ID", ImGuiTableColumnFlags.WidthFixed, 50);
             ImGui.TableSetupColumn("Название (EN)", ImGuiTableColumnFlags.WidthFixed, 160);
+            ImGui.TableSetupColumn("Группа", ImGuiTableColumnFlags.WidthFixed, 90);
             ImGui.TableSetupColumn("Статус", ImGuiTableColumnFlags.WidthFixed, 90);
             ImGui.TableSetupColumn("Перевод (превью)", ImGuiTableColumnFlags.WidthStretch);
             ImGui.TableHeadersRow();
@@ -205,6 +208,9 @@ public class ConfigWindow : Window, IDisposable
 
                 ImGui.TableNextColumn();
                 ImGui.TextUnformatted(row.EnglishName);
+
+                ImGui.TableNextColumn();
+                ImGui.TextUnformatted(row.Group);
 
                 ImGui.TableNextColumn();
                 if (row.IsResolved)
@@ -226,11 +232,11 @@ public class ConfigWindow : Window, IDisposable
     private static string BuildClipboardText(IReadOnlyList<JobActionDumpRow> rows)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("ActionId\tName\tResolved\tTranslation");
+        sb.AppendLine("ActionId\tName\tGroup\tResolved\tTranslation");
         foreach (var row in rows)
         {
             var preview = row.RussianPreview?.Replace('\t', ' ').Replace('\n', ' ') ?? string.Empty;
-            sb.AppendLine($"{row.ActionId}\t{row.EnglishName}\t{(row.IsResolved ? "yes" : "no")}\t{preview}");
+            sb.AppendLine($"{row.ActionId}\t{row.EnglishName}\t{row.Group}\t{(row.IsResolved ? "yes" : "no")}\t{preview}");
         }
 
         return sb.ToString();

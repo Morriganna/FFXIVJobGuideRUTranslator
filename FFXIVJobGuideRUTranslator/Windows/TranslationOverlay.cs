@@ -29,9 +29,21 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// </summary>
 public static class TranslationOverlay
 {
-    private const float WrapWidth = 260f;
-    private const float Margin = 8f;
-    private const float Gap = 6f; // расстояние между родным окном и нашим
+    // Базовые размеры подобраны под условный монитор 1920x1080 - на нём Scale (см. GetScale)
+    // равен 1. На более высоком разрешении окно целиком (шрифт, отступы, перенос строк)
+    // пропорционально увеличивается, иначе на 1440p/4K оно выглядит нечитаемо мелким рядом с
+    // родной подсказкой игры, которая масштабируется вместе с игровым UI.
+    private const float BaseWrapWidth = 260f;
+    private const float BaseMargin = 8f;
+    private const float BaseGap = 6f; // расстояние между родным окном и нашим
+    private const float BaseWindowPaddingX = 7f;
+    private const float BaseWindowPaddingY = 5f;
+    private const float BaseItemSpacing = 2f;
+
+    // Не даём окну ужаться мельче исходного расчёта (на совсем маленьких/низких разрешениях) и
+    // не даём ему раздуться бесконечно на сверхширокоформатных мониторах - разумный потолок.
+    private const float MinScale = 1f;
+    private const float MaxScale = 2.5f;
 
     // Цвета подобраны на глаз под то, как их красит родная подсказка игры (см. скриншоты в истории
     // правок) - точных hex-кодов из клиента у меня нет, так что это приближение, не единственно
@@ -118,6 +130,20 @@ public static class TranslationOverlay
             new GameFontStyle(GameFontFamilyAndSize.Axis96));
     }
 
+    /// <summary>
+    /// Множитель размера окна под текущее разрешение экрана (DisplaySize), относительно базового
+    /// расчёта под 1920x1080 (см. константы Base*). Считаем по высоте - она меньше "плавает" от
+    /// ультраширокоформатных мониторов, чем ширина. Зажато между MinScale и MaxScale.
+    /// </summary>
+    private static float GetScale(Vector2 display)
+    {
+        const float baselineHeight = 1080f;
+        if (display.Y <= 0)
+            return MinScale;
+
+        return Math.Clamp(display.Y / baselineHeight, MinScale, MaxScale);
+    }
+
     /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
     public static void Draw(AbilityHoverWatcher.HoverInfo? hover)
     {
@@ -126,21 +152,25 @@ public static class TranslationOverlay
 
         var info = hover.Value;
         var display = ImGui.GetIO().DisplaySize;
+        var scale = GetScale(display);
+
+        var margin = BaseMargin * scale;
+        var gap = BaseGap * scale;
 
         // По умолчанию - справа от родного окна, на той же высоте, что и его верх.
-        var pos = new Vector2(info.X + info.Width + Gap, info.Y);
+        var pos = new Vector2(info.X + info.Width + gap, info.Y);
 
         // Не помещается справа - показываем слева от родного окна вместо того, чтобы вылезти
         // за правый край экрана.
-        if (pos.X + lastSize.X + Margin > display.X)
-            pos.X = info.X - lastSize.X - Gap;
+        if (pos.X + lastSize.X + margin > display.X)
+            pos.X = info.X - lastSize.X - gap;
 
         // Всё ещё за пределами (окно само у самого края) - прижимаем к соответствующему краю экрана.
-        pos.X = Math.Clamp(pos.X, Margin, Math.Max(Margin, display.X - lastSize.X - Margin));
+        pos.X = Math.Clamp(pos.X, margin, Math.Max(margin, display.X - lastSize.X - margin));
 
         // Не помещается по высоте ниже верхней границы родного окна - сдвигаем вверх так, чтобы
         // остаться в пределах экрана.
-        pos.Y = Math.Clamp(pos.Y, Margin, Math.Max(Margin, display.Y - lastSize.Y - Margin));
+        pos.Y = Math.Clamp(pos.Y, margin, Math.Max(margin, display.Y - lastSize.Y - margin));
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
@@ -153,10 +183,10 @@ public static class TranslationOverlay
         ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
         ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7, 5));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(BaseWindowPaddingX * scale, BaseWindowPaddingY * scale));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f);
-        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(2, 2));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(BaseItemSpacing * scale, BaseItemSpacing * scale));
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
                                         | ImGuiWindowFlags.NoResize
@@ -170,6 +200,12 @@ public static class TranslationOverlay
 
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
+            // Масштабирует весь текст этого окна (и то, что CalcTextSize/перенос строк ниже
+            // считают в WrapWidth*scale) под разрешение монитора - см. GetScale. Обязательно
+            // ДО любого текста/CalcTextSize в этом окне, иначе перенос строк посчитает по
+            // немасштабированному размеру шрифта и разъедется с реальной шириной глифов.
+            ImGui.SetWindowFontScale(scale);
+
             // Рисуем ДО текста (первым в draw list = самый нижний слой), размер берём с
             // предыдущего кадра (см. lastSize) - ImGui не знает итоговый размер
             // AlwaysAutoResize-окна до того, как весь контент этого кадра уже отправлен.
@@ -177,7 +213,7 @@ public static class TranslationOverlay
                 DrawNineSlice(bg, ImGui.GetWindowPos(), lastSize);
 
             foreach (var line in info.Entry.Content!.Split('\n'))
-                DrawLine(line);
+                DrawLine(line, scale);
 
             lastSize = ImGui.GetWindowSize();
         }
@@ -238,10 +274,10 @@ public static class TranslationOverlay
     /// вручную, по словам (см. класс) - иначе ImGui "залипает" на отступе первого разноцветного
     /// куска абзаца.
     /// </summary>
-    private static void DrawLine(string line)
+    private static void DrawLine(string line, float scale)
     {
         var tokens = ComputeLineTokens(line);
-        RenderLineTokens(tokens);
+        RenderLineTokens(tokens, BaseWrapWidth * scale);
     }
 
     /// <summary>Решает, как разбить и раскрасить строку - см. комментарии у LabelOnlyAccentPrefixes/EffectOfNamedStatusRegex.</summary>
@@ -279,7 +315,7 @@ public static class TranslationOverlay
         return effectMatch.Success ? effectMatch.Length : 0;
     }
 
-    private static void RenderLineTokens(List<Token> tokens)
+    private static void RenderLineTokens(List<Token> tokens, float wrapWidth)
     {
         var cursorX = 0f;
         var atLineStart = true;
@@ -297,7 +333,7 @@ public static class TranslationOverlay
             // конец строки, а вот следующее слово (название умения в скобках и т.п.) уже не
             // помещается и переносится само по себе, отделяясь от открывающей скобки. Складывая
             // сюда ширину следующего токена, переносим их вместе, как единое целое.
-            var wraps = !atLineStart && cursorX + width + glueWidth > WrapWidth;
+            var wraps = !atLineStart && cursorX + width + glueWidth > wrapWidth;
             // Перенос строки: НЕ вызываем ImGui.NewLine() явно - обычный TextColored сам переводит
             // курсор на новую строку, если следующий вызов не предварён SameLine(). Явный NewLine()
             // здесь добавлял бы ВТОРОЙ перевод строки поверх автоматического - отсюда были двойные
