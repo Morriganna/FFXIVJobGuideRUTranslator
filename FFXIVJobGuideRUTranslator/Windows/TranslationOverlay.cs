@@ -77,13 +77,14 @@ public static class TranslationOverlay
     private readonly record struct Token(string Text, Vector4 Color);
 
     /// <summary>
-    /// Настоящий игровой шрифт (Axis, 12pt - как основной текст описания в родной подсказке)
-    /// вместо системного шрифта ImGui. Создаётся один раз и держится на весь сеанс игры.
+    /// Настоящий игровой шрифт (Axis, 9.6pt - меньше и компактнее 12pt, ближе к тому, каким
+    /// размером в родной подсказке набрано само описание) вместо системного шрифта ImGui.
+    /// Создаётся один раз и держится на весь сеанс игры.
     /// </summary>
     private static IFontHandle GetBodyFont()
     {
         return bodyFontHandle ??= Plugin.PluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(
-            new GameFontStyle(GameFontFamilyAndSize.Axis12));
+            new GameFontStyle(GameFontFamilyAndSize.Axis96));
     }
 
     /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
@@ -123,7 +124,7 @@ public static class TranslationOverlay
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7, 5));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f);
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(2, 2));
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
