@@ -12,6 +12,7 @@ using Dalamud.Plugin.Services;
 using FFXIVJobGuideRUTranslator.Data;
 using FFXIVJobGuideRUTranslator.Hooks;
 using FFXIVJobGuideRUTranslator.Windows;
+using KamiToolKit;
 using KamiToolKit.UiOverlay;
 
 namespace FFXIVJobGuideRUTranslator;
@@ -65,18 +66,8 @@ public sealed class Plugin : IDalamudPlugin
 
         hoverWatcher = new AbilityHoverWatcher(AddonLifecycle, GameGui, Log, Configuration, Repository);
 
-        // Fire-and-forget: см. комментарий у полей overlayController/nativeOverlayNode - должны
-        // создаваться строго в главном потоке игры, поэтому не прямо здесь.
-        Framework.RunOnFrameworkThread(() =>
-        {
-            overlayController = new OverlayController();
-            nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow);
-            overlayController.AddNode(nativeOverlayNode);
-        }).ContinueWith(t =>
-        {
-            if (t.Exception is not null)
-                Log.Error(t.Exception, "[JobGuideRU] Не удалось создать нативный оверлей (KamiToolKit) - переключатель \"нативное окно\" в /jgru не будет работать.");
-        }, TaskContinuationOptions.OnlyOnFaulted);
+        // Fire-and-forget - см. InitializeNativeOverlayAsync.
+        _ = InitializeNativeOverlayAsync();
 
         ConfigWindow = new ConfigWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
@@ -128,6 +119,34 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     public void ApplyAddonRegistrations() => hoverWatcher?.ApplyRegistrations();
+
+    /// <summary>
+    /// KamiToolKit требует одноразовой инициализации (KamiToolKitLibrary.InitializeAsync) ДО
+    /// использования любых её классов - без неё OverlayController падает с NullReferenceException
+    /// в своём внутреннем сервис-локаторе (см. историю правок). InitializeAsync можно звать не
+    /// строго в главном потоке (это и есть точка входа библиотеки), а вот сами ноды/контроллеры -
+    /// строго в нём, поэтому отдельным шагом через Framework.RunOnFrameworkThread ПОСЛЕ await, а
+    /// не как продолжение внутри одной async-лямбды: Dalamud документирует, что код после await
+    /// внутри RunOnFrameworkThread уже выполняется НЕ в главном потоке.
+    /// </summary>
+    private async Task InitializeNativeOverlayAsync()
+    {
+        try
+        {
+            await KamiToolKitLibrary.InitializeAsync(PluginInterface).ConfigureAwait(false);
+
+            await Framework.RunOnFrameworkThread(() =>
+            {
+                overlayController = new OverlayController();
+                nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow);
+                overlayController.AddNode(nativeOverlayNode);
+            }).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "[JobGuideRU] Не удалось создать нативный оверлей (KamiToolKit) - переключатель \"нативное окно\" в /jgru не будет работать.");
+        }
+    }
 
     /// <summary>Дамп умений текущей работы персонажа для вкладки "Debug" окна настроек - см. JobActionDump.</summary>
     public List<JobActionDumpRow> BuildJobActionDump(out string? jobAbbreviation)
