@@ -34,20 +34,22 @@ public class ConfigWindow : Window, IDisposable
         ImGui.TextUnformatted("Список аддонов, где разрешена подмена текста:");
         ImGui.TextWrapped("Проверьте актуальные имена через /xldata -> Addon Inspector, если что-то не работает.");
 
-        string? toRemove = null;
-        foreach (var name in configuration.TargetAddonNames)
+        var toRemoveIndex = -1;
+        for (var i = 0; i < configuration.TargetAddonNames.Count; i++)
         {
             ImGui.Bullet();
             ImGui.SameLine();
-            ImGui.TextUnformatted(name);
+            ImGui.TextUnformatted(configuration.TargetAddonNames[i]);
             ImGui.SameLine();
-            if (ImGui.SmallButton($"Убрать###remove_{name}"))
-                toRemove = name;
+            // ID кнопки завязан на индекс, а не на имя - иначе одинаковые записи (например, если
+            // список случайно продублировался) получают одинаковый ImGui ID и путаются между собой.
+            if (ImGui.SmallButton($"Убрать###remove_{i}"))
+                toRemoveIndex = i;
         }
 
-        if (toRemove is not null)
+        if (toRemoveIndex >= 0)
         {
-            configuration.TargetAddonNames.Remove(toRemove);
+            configuration.TargetAddonNames.RemoveAt(toRemoveIndex);
             configuration.Save();
             plugin.ApplyAddonRegistrations();
         }
@@ -55,11 +57,13 @@ public class ConfigWindow : Window, IDisposable
         ImGui.SetNextItemWidth(200);
         ImGui.InputText("##newAddonName", ref newAddonName, 64);
         ImGui.SameLine();
-        if (ImGui.Button("Добавить аддон") && !string.IsNullOrWhiteSpace(newAddonName))
+        if (ImGui.Button("Добавить аддон"))
         {
-            if (!configuration.TargetAddonNames.Contains(newAddonName))
+            var trimmed = newAddonName.Trim();
+            if (!string.IsNullOrEmpty(trimmed) &&
+                !configuration.TargetAddonNames.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
             {
-                configuration.TargetAddonNames.Add(newAddonName);
+                configuration.TargetAddonNames.Add(trimmed);
                 configuration.Save();
                 plugin.ApplyAddonRegistrations();
             }

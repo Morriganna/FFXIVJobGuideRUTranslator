@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Command;
@@ -39,6 +41,7 @@ public sealed class Plugin : IDalamudPlugin
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
+        CleanUpTargetAddonNames();
 
         overrideDirectory = Path.Combine(PluginInterface.ConfigDirectory.FullName, "translations");
 
@@ -76,6 +79,30 @@ public sealed class Plugin : IDalamudPlugin
     }
 
     public void ApplyAddonRegistrations() => translator?.ApplyRegistrations();
+
+    /// <summary>
+    /// Однократно чистит список аддонов от пустых/пробельных и повторяющихся (без учёта
+    /// регистра) записей, которые могли накопиться в уже сохранённом на диске конфиге
+    /// (например, из-за незатримленного ввода в старой версии окна настроек).
+    /// </summary>
+    private void CleanUpTargetAddonNames()
+    {
+        var cleaned = Configuration.TargetAddonNames
+            .Select(n => n?.Trim())
+            .Where(n => !string.IsNullOrEmpty(n))
+            .Select(n => n!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (cleaned.Count == Configuration.TargetAddonNames.Count &&
+            cleaned.SequenceEqual(Configuration.TargetAddonNames, StringComparer.Ordinal))
+        {
+            return;
+        }
+
+        Configuration.TargetAddonNames = cleaned;
+        Configuration.Save();
+    }
 
     public void ReloadBundledTranslations()
     {

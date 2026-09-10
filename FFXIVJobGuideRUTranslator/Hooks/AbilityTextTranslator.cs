@@ -77,12 +77,19 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             addonLifecycle.UnregisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
         registeredAddonNames.Clear();
 
-        foreach (var name in configuration.TargetAddonNames)
+        foreach (var rawName in configuration.TargetAddonNames)
         {
-            if (string.IsNullOrWhiteSpace(name))
+            var name = rawName?.Trim();
+            if (string.IsNullOrEmpty(name))
                 continue;
+
+            // HashSet.Add возвращает false, если имя уже добавлено - так регистрируем каждый
+            // аддон максимум один раз, даже если в конфиге он по ошибке продублирован
+            // (иначе PostDraw срабатывал бы по несколько раз за кадр на один и тот же аддон).
+            if (!registeredAddonNames.Add(name))
+                continue;
+
             addonLifecycle.RegisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
-            registeredAddonNames.Add(name);
         }
 
         log.Information($"[JobGuideRU] Слушаю аддоны: {string.Join(", ", registeredAddonNames)}");
