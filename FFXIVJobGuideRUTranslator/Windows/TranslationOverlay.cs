@@ -294,9 +294,12 @@ public static class TranslationOverlay
 
             if (matchedWordCount > 0)
             {
-                var matchedText = string.Join(' ', words, 0, matchedWordCount);
-                tokens.Add(new Token(matchedText, NameHighlightColor));
-                pos = match.Index + matchedText.Length;
+                // Подсвечиваем ВЕСЬ захваченный кусок целиком, а не только совпавший префикс -
+                // например, "Confiteor Ready" (составной статус-эффект: умение + суффикс вроде
+                // "Ready"/"Attunement") в базе есть только как "Confiteor", но по смыслу это одна
+                // целая ссылка на эффект, и в оригинале она подсвечена целиком, а не наполовину.
+                tokens.Add(new Token(match.Value, NameHighlightColor));
+                pos = match.Index + match.Length;
             }
             else
             {
