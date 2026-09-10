@@ -35,7 +35,7 @@ public sealed class Plugin : IDalamudPlugin
     public readonly WindowSystem WindowSystem = new("FFXIVJobGuideRUTranslator");
     private ConfigWindow ConfigWindow { get; }
 
-    private AbilityTextTranslator? translator;
+    private AbilityHoverWatcher? hoverWatcher;
     private readonly string overrideDirectory;
 
     public Plugin()
@@ -48,7 +48,7 @@ public sealed class Plugin : IDalamudPlugin
         Repository = new TranslationRepository(DataManager, Log, overrideDirectory);
         Repository.Reload();
 
-        translator = new AbilityTextTranslator(AddonLifecycle, GameGui, Log, Configuration, Repository);
+        hoverWatcher = new AbilityHoverWatcher(AddonLifecycle, GameGui, Log, Configuration, Repository);
 
         ConfigWindow = new ConfigWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
@@ -58,7 +58,7 @@ public sealed class Plugin : IDalamudPlugin
             HelpMessage = "Открывает настройки перевода умений. \"/jgru update\" - обновить перевод с GitHub.",
         });
 
-        PluginInterface.UiBuilder.Draw += WindowSystem.Draw;
+        PluginInterface.UiBuilder.Draw += OnDraw;
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
 
         Log.Information("[JobGuideRU] Плагин загружен.");
@@ -66,19 +66,30 @@ public sealed class Plugin : IDalamudPlugin
 
     public void Dispose()
     {
-        PluginInterface.UiBuilder.Draw -= WindowSystem.Draw;
+        PluginInterface.UiBuilder.Draw -= OnDraw;
         PluginInterface.UiBuilder.OpenConfigUi -= ToggleConfigUi;
 
         WindowSystem.RemoveAllWindows();
         ConfigWindow.Dispose();
 
-        translator?.Dispose();
-        translator = null;
+        hoverWatcher?.Dispose();
+        hoverWatcher = null;
 
         CommandManager.RemoveHandler(CommandName);
     }
 
-    public void ApplyAddonRegistrations() => translator?.ApplyRegistrations();
+    private void OnDraw()
+    {
+        WindowSystem.Draw();
+
+        // Оверлей с переводом рисуется отдельно поверх экрана - см. AbilityHoverWatcher/TranslationOverlay.
+        // CurrentEntry живёт ровно один кадр: если ни один отслеживаемый аддон не "подсветил" его
+        // заново на этом кадре (подсказка игры уже не показана), ResetForNextFrame его погасит.
+        TranslationOverlay.Draw(hoverWatcher?.CurrentEntry);
+        hoverWatcher?.ResetForNextFrame();
+    }
+
+    public void ApplyAddonRegistrations() => hoverWatcher?.ApplyRegistrations();
 
     /// <summary>
     /// Однократно чистит список аддонов от пустых/пробельных и повторяющихся (без учёта
