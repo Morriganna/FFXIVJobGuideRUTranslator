@@ -284,38 +284,53 @@ public static class TranslationOverlay
         var cursorX = 0f;
         var atLineStart = true;
 
-        void Place(Token token)
+        void Place(string text, Vector4 color, float glueWidth)
         {
             // Пробел, оказавшийся в начале строки (после переноса) - пропускаем, иначе перенесённая
             // строка начинается с заметного отступа.
-            if (atLineStart && string.IsNullOrWhiteSpace(token.Text))
+            if (atLineStart && string.IsNullOrWhiteSpace(text))
                 return;
 
-            var width = ImGui.CalcTextSize(token.Text).X;
+            var width = ImGui.CalcTextSize(text).X;
+            // glueWidth - ширина следующего токена, если этот токен - открывающая скобка "(" без
+            // пробела перед содержимым: без неё "(" сама по себе маленькая и легко помещается в
+            // конец строки, а вот следующее слово (название умения в скобках и т.п.) уже не
+            // помещается и переносится само по себе, отделяясь от открывающей скобки. Складывая
+            // сюда ширину следующего токена, переносим их вместе, как единое целое.
+            var wraps = !atLineStart && cursorX + width + glueWidth > WrapWidth;
             // Перенос строки: НЕ вызываем ImGui.NewLine() явно - обычный TextColored сам переводит
             // курсор на новую строку, если следующий вызов не предварён SameLine(). Явный NewLine()
             // здесь добавлял бы ВТОРОЙ перевод строки поверх автоматического - отсюда были двойные
             // интервалы между строками. Просто не зовём SameLine() для этого токена.
-            var wraps = !atLineStart && cursorX + width > WrapWidth;
             if (wraps)
             {
                 cursorX = 0f;
                 atLineStart = true;
 
-                if (string.IsNullOrWhiteSpace(token.Text))
+                if (string.IsNullOrWhiteSpace(text))
                     return; // тот же пробел, теперь уже в начале новой строки - тоже не рисуем
             }
 
             if (!atLineStart)
                 ImGui.SameLine(0, 0);
 
-            ImGui.TextColored(token.Color, token.Text);
+            ImGui.TextColored(color, text);
             cursorX += width;
             atLineStart = false;
         }
 
-        foreach (var token in tokens)
-            Place(token);
+        for (var i = 0; i < tokens.Count; i++)
+        {
+            var token = tokens[i];
+            // Одинокая открывающая скобка (без пробела после - "(Limit Break)") - считаем её
+            // приклеенной к следующему токену для целей переноса, чтобы они не разъезжались
+            // по разным строкам, даже раскрашенные в разные цвета (сама скобка рисуется отдельным
+            // вызовом TextColored, просто перенос решается для обоих сразу).
+            var glueWidth = token.Text == "(" && i + 1 < tokens.Count
+                ? ImGui.CalcTextSize(tokens[i + 1].Text).X
+                : 0f;
+            Place(token.Text, token.Color, glueWidth);
+        }
 
         if (atLineStart)
             ImGui.NewLine(); // строка не дала ни одного видимого токена (пустая строка в оригинале) - просто переходим дальше
