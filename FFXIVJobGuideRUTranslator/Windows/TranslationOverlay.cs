@@ -11,11 +11,11 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// в AbilityHoverWatcher про то, почему это не сработало). Окно ImGui само разворачивается под
 /// любой объём текста, ничего в памяти игры не трогает и в принципе не может сломать её UI.
 ///
-/// Внешний вид подогнан под стилистику родной подсказки умения: тёмный полупрозрачный фон,
-/// тонкая рамка, золотая разделительная линия под заголовком (частый приём в интерфейсе FFXIV),
-/// и подсветка тех же меток, что игра красит цветом в оригинале - "Duration:" (зелёный) и
-/// "Additional Effect:" (золотой). Сама вёрстка (иконка/Range/Radius/Cast/Recast и т.п.) не
-/// воспроизводится - это по-прежнему отдельное окно, а не копия родного.
+/// Внешний вид подогнан под стилистику родной подсказки умения: тёмный, почти чёрный фон,
+/// тонкая рамка с минимальным скруглением углов (как в игре), тонкий серый разделитель под
+/// заголовком, и подсветка тех же меток, что игра красит цветом в оригинале - "Duration:"
+/// (зелёный) и "Additional Effect:" (золотой). Сама вёрстка (иконка/Range/Radius/Cast/Recast
+/// и т.п.) не воспроизводится - это по-прежнему отдельное окно, а не копия родного.
 /// </summary>
 public static class TranslationOverlay
 {
@@ -38,7 +38,9 @@ public static class TranslationOverlay
     };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
-    private static readonly Vector4 GoldAccent = new(0.75f, 0.62f, 0.32f, 0.9f); // общий золотой акцент интерфейса FFXIV
+    private static readonly Vector4 GoldAccent = new(0.75f, 0.62f, 0.32f, 0.9f); // "Additional Effect:" и т.п. - только там, где так красит сама игра
+    private static readonly Vector4 MutedLabelColor = new(0.62f, 0.62f, 0.65f, 0.9f); // как серые подписи "Acquired"/"Affinity" в родной подсказке
+    private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f); // как тонкие серые разделители в родной подсказке (не золотые)
 
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
@@ -71,13 +73,14 @@ public static class TranslationOverlay
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
-        // Тёмный полупрозрачный фон и тонкая рамка - под стиль родной подсказки умения.
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.055f, 0.055f, 0.065f, 0.95f));
-        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.42f, 0.44f, 0.50f, 0.6f));
-        ImGui.PushStyleColor(ImGuiCol.Separator, GoldAccent);
+        // Тёмный, почти чёрный (с лёгким тёплым оттенком) фон и тонкая рамка с минимальным
+        // скруглением углов - под стиль родной подсказки умения (там углы почти прямые).
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
+        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
+        ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(11, 9));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 3f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 2f);
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(4, 5));
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
@@ -91,10 +94,10 @@ public static class TranslationOverlay
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
             ImGui.SetWindowFontScale(0.82f);
-            ImGui.TextColored(GoldAccent, "ПЕРЕВОД · FF14JOBGUIDE.RU");
+            ImGui.TextColored(MutedLabelColor, "Перевод (ff14jobguide.ru)");
             ImGui.SetWindowFontScale(1f);
 
-            // Золотая разделительная линия под заголовком - как в самой игре под названиями разделов.
+            // Тонкая разделительная линия под заголовком - как в самой игре между секциями подсказки.
             ImGui.Separator();
             ImGui.Spacing();
 
