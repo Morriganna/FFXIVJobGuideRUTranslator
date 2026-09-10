@@ -16,7 +16,8 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: "9.0.x"
+          # .NET 10 - требует KamiToolKit 2.2.39 (net10.0-windows7.0), см. csproj.
+          dotnet-version: "10.0.x"
           cache: true
           cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
 

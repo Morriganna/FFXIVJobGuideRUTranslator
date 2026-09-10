@@ -19,4 +19,11 @@
          только чтобы обновить перевод командой "/jgru update". -->
     <EmbeddedResource Include="Data\SourceJson\**\*.json" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Для попытки заменить родную подсказку умения своим нативным окном (вместо ImGui-оверлея) -
+         см. Windows/TranslationOverlay.cs и историю правок. net10.0-windows7.0 у 2.2.39 совпадает
+         с тем, что требует Dalamud API 15 (см. Sdk выше) - конфликта версий быть не должно. -->
+    <PackageReference Include="KamiToolKit" Version="2.2.39" />
+  </ItemGroup>
 </Project>

@@ -1,0 +1,47 @@
+name: Update lockfile
+
+# Пересобирает FFXIVJobGuideRUTranslator/packages.lock.json под текущие PackageReference в
+# .csproj и коммитит его в main. Нужен, когда меняются/добавляются зависимости (например
+# KamiToolKit), а собрать/восстановить пакеты локально (dotnet restore) негде - остальные
+# workflow (Build/Release/Test build) делают restore с --locked-mode и падают на рассинхроне.
+# Запускается только вручную.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Setup Dalamud
+        uses: Blooym/setup-dalamud@v1
+        with:
+          branch: release
+
+      # Без --locked-mode: именно это пересчитывает и переписывает packages.lock.json под
+      # текущие PackageReference, а не проверяет его на соответствие (как в остальных workflow).
+      - name: Restore (regenerate lockfile)
+        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --force-evaluate
+
+      - name: Commit lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add FFXIVJobGuideRUTranslator/packages.lock.json
+          status=$(git status --porcelain)
+          if [ -n "$status" ]; then
+            git commit -m "chore: update packages.lock.json [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "packages.lock.json не изменился."
+          fi
