@@ -12,22 +12,18 @@ public class Configuration : IPluginConfiguration
     /// <summary>Глобальный выключатель — если false, плагин не трогает никакой текст.</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>Заменять текст в панели описания окна "Actions &amp; Traits" (ActionMenu / ActionDetail).</summary>
-    public bool TranslateActionMenu { get; set; } = true;
-
-    /// <summary>Заменять текст во всплывающей подсказке умения на хотбаре.</summary>
-    public bool TranslateHoverTooltip { get; set; } = true;
-
     /// <summary>
     /// Имена нативных аддонов (окон), в которых плагину разрешено подменять текст.
-    /// Проверьте актуальные имена через /xldata -> Addon Inspector (см. README) и поправьте список,
-    /// если в вашей версии игры название другое. Это единственное место, которое ограничивает,
-    /// где плагин вообще может что-то менять — в остальных окнах он не активен.
+    /// По факту (проверено на живом клиенте) один и тот же аддон ActionDetail рисует и
+    /// всплывающую подсказку умения на хотбаре, и панель описания в "Actions &amp; Traits" -
+    /// отдельный аддон "Tooltip" добавлять НЕ нужно, он дублирует тот же текст поверх экрана
+    /// без рамки окна. Проверить/поправить имена под свою версию игры: /xldata -> Addon Inspector.
+    /// Это единственное место, которое ограничивает, где плагин вообще может что-то менять —
+    /// в остальных окнах он не активен.
     /// </summary>
     public List<string> TargetAddonNames { get; set; } = new()
     {
         "ActionDetail",
-        "Tooltip",
     };
 
     /// <summary>UTC-время последнего успешного обновления перевода с GitHub. Null = используется только бандл.</summary>

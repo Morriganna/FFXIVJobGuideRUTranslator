@@ -74,12 +74,6 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         if (!configuration.Enabled)
             return;
 
-        var isTooltip = string.Equals(args.AddonName, "Tooltip", StringComparison.Ordinal);
-        if (isTooltip && !configuration.TranslateHoverTooltip)
-            return;
-        if (!isTooltip && !configuration.TranslateActionMenu)
-            return;
-
         try
         {
             // args.Addon - это AtkUnitBasePtr (обёртка без прямой зависимости от ClientStructs),
@@ -96,13 +90,12 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
 
             TranslationEntry? entry = null;
 
-            // Для всплывающей подсказки на хотбаре: точный ActionId через Dalamud, без поиска по тексту.
-            if (isTooltip)
-            {
-                var hovered = gameGui.HoveredAction;
-                if (hovered.ActionId != 0 && repository.TryGetByActionId(hovered.ActionId, out var byId) && byId.Count > 0)
-                    entry = byId[0];
-            }
+            // Если сейчас реально наведено на умение на хотбаре - берём точный ActionId через
+            // Dalamud, без поиска по тексту. Если нет (например, это панель в "Actions & Traits",
+            // где ничего не "наведено" в смысле хотбара) - тихо переходим к поиску по названию ниже.
+            var hovered = gameGui.HoveredAction;
+            if (hovered.ActionId != 0 && repository.TryGetByActionId(hovered.ActionId, out var byId) && byId.Count > 0)
+                entry = byId[0];
 
             var textNodes = new List<(nint Address, string Text)>();
             CollectTextNodes((AtkResNode*)addon->RootNode, textNodes);

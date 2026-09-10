@@ -30,20 +30,6 @@ public class ConfigWindow : Window, IDisposable
             configuration.Save();
         }
 
-        var translateTooltip = configuration.TranslateHoverTooltip;
-        if (ImGui.Checkbox("Переводить всплывающую подсказку умения на хотбаре", ref translateTooltip))
-        {
-            configuration.TranslateHoverTooltip = translateTooltip;
-            configuration.Save();
-        }
-
-        var translateActionMenu = configuration.TranslateActionMenu;
-        if (ImGui.Checkbox("Переводить панель описания в окне \"Actions & Traits\"", ref translateActionMenu))
-        {
-            configuration.TranslateActionMenu = translateActionMenu;
-            configuration.Save();
-        }
-
         ImGui.Separator();
         ImGui.TextUnformatted("Список аддонов, где разрешена подмена текста:");
         ImGui.TextWrapped("Проверьте актуальные имена через /xldata -> Addon Inspector, если что-то не работает.");
