@@ -13,12 +13,6 @@
         "requested": "[1.2.39, )",
         "resolved": "1.2.39",
         "contentHash": "fcFN01tDTIQqDuTwr1jUQK/geofiwjG5DycJQOnC72i1SsLAk1ELe+apBOuZ11UMQG8YKFZG1FgvjZPbqHyatg=="
-      },
-      "KamiToolKit": {
-        "type": "Direct",
-        "requested": "[2.2.39, )",
-        "resolved": "2.2.39",
-        "contentHash": "0Bs4T4BxPwM56floZ6vWTrcqXkuRIB9VB0iLqbspDvMg8oe9Yg0xQogQZcTY2KkX+eJt1iwzPwje5vdF02tG6Q=="
       }
     }
   }
