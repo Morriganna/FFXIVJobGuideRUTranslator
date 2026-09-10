@@ -14,18 +14,22 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// (по его экранным координатам, а не по курсору мыши - см. историю правок), поверх экрана -
 /// вместо того чтобы пытаться вписать его в родную подсказку игры (см. AbilityHoverWatcher про
 /// то, почему это не сработало). Окно ImGui само разворачивается под любой объём текста, ничего
-/// в памяти игры не трогает и в принципе не может сломать её UI.
+/// в памяти игры не трогает и в принципе не может сломать её UI. Плагин переводит ТОЛЬКО текст
+/// описания - иконка, статы (Cast/Recast/Range/Radius), Acquired/Affinity остаются в родном окне
+/// как есть, это окно их не дублирует и не подменяет, а просто становится рядом.
 ///
-/// По внешнему виду специально старается быть визуальным "двойником" родной подсказки:
-/// НАСТОЯЩАЯ текстура фона/рамки, которую в данный момент использует сама игра (см.
-/// AbilityHoverWatcher.TryGetBackgroundNineGrid - берём ссылку на уже загруженную GPU-текстуру
-/// прямо из живой ноды окна и рисуем её как честный девятислайс, а не приближение цветом); если
-/// текстуру достать не удалось - откат на плоский тёмный фон с тонкой рамкой. Плюс настоящий
-/// игровой шрифт (Axis через Dalamud GameFontStyle), та же подсветка меток ("Duration:" зелёным,
-/// "Additional Effect:"/"Cure Potency:" золотым/голубым) И названий умений/статусов ПРЯМО ВНУТРИ
-/// предложения (они остаются на английском в переводе - оригинал их не переводит, как и мы).
-/// Перенос строк реализован вручную, по словам (а не через PushTextWrapPos) - иначе разноцветные
-/// куски одного абзаца "залипают" на отступе первого куска при переносе (см. историю правок).
+/// По внешнему виду - НЕ попытка притвориться родным окном (см. историю правок: пробовали красть
+/// настоящую текстуру фона через AbilityHoverWatcher.TryGetBackgroundNineGrid, но для ActionDetail
+/// подходящей ноды-текстуры почти никогда не находится - похоже, фон там рисуется заливкой ниже
+/// уровня нод, а не текстурой). Вместо имитации - осознанно "своя" плашка: тёмная полупрозрачная
+/// карточка с цветной полоской слева и подписью JOBGUIDERU сверху, явно другого цвета, чем сама
+/// игра - чтобы на экране сразу было видно, что это добавка плагина, а не часть родного UI.
+/// Настоящий игровой шрифт (Axis через Dalamud GameFontStyle) и та же подсветка меток ("Duration:"
+/// зелёным, "Additional Effect:"/"Cure Potency:" золотым/голубым) И названий умений/статусов ПРЯМО
+/// ВНУТРИ предложения (они остаются на английском в переводе - оригинал их не переводит, как и мы)
+/// - сохранены, это часть самого текста, а не имитация окна. Перенос строк реализован вручную, по
+/// словам (а не через PushTextWrapPos) - иначе разноцветные куски одного абзаца "залипают" на
+/// отступе первого куска при переносе (см. историю правок).
 /// </summary>
 public static class TranslationOverlay
 {
@@ -94,6 +98,13 @@ public static class TranslationOverlay
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
     private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
+
+    // Оформление карточки (не родной игры - см. доккомментарий класса).
+    private static readonly Vector4 NoteBg = new(0.094f, 0.125f, 0.149f, 0.94f);
+    private static readonly Vector4 NoteBorder = new(0.22f, 0.35f, 0.40f, 0.9f);
+    private static readonly Vector4 NoteAccent = new(0.357f, 0.561f, 0.659f, 1f);
+    private const float AccentStripeWidth = 3f;
+    private const string TagText = "JOBGUIDERU · ПЕРЕВОД";
     // Названия умений/статусов, упомянутые внутри предложения ("Holy Spirit", "Confiteor" и т.п.) -
     // в оригинале это ДРУГОЙ цвет, оранжевый, отдельно от зелёных меток (Duration/Additional Effect).
     private static readonly Vector4 NameHighlightColor = new(0.90f, 0.62f, 0.32f, 1f);
@@ -180,8 +191,8 @@ public static class TranslationOverlay
         // нарисует часть/всю плашку (например, границы среза распознаны неверно и все 9 кусков
         // оказались вырожденными), под ней всё равно останется читаемый фон, а не голый текст
         // прямо поверх игрового мира.
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
-        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, NoteBg);
+        ImGui.PushStyleColor(ImGuiCol.Border, NoteBorder);
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(BaseWindowPaddingX * scale, BaseWindowPaddingY * scale));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
@@ -206,11 +217,20 @@ public static class TranslationOverlay
             // немасштабированному размеру шрифта и разъедется с реальной шириной глифов.
             ImGui.SetWindowFontScale(scale);
 
-            // Рисуем ДО текста (первым в draw list = самый нижний слой), размер берём с
-            // предыдущего кадра (см. lastSize) - ImGui не знает итоговый размер
+            // Размер берём с предыдущего кадра (см. lastSize) - ImGui не знает итоговый размер
             // AlwaysAutoResize-окна до того, как весь контент этого кадра уже отправлен.
             if (info.Background is { } bg)
                 DrawNineSlice(bg, ImGui.GetWindowPos(), lastSize);
+
+            // Полоска слева - маркер "это добавка плагина, не часть родного UI" (см. доккомментарий класса).
+            var winPos = ImGui.GetWindowPos();
+            ImGui.GetWindowDrawList().AddRectFilled(
+                winPos, winPos + new Vector2(AccentStripeWidth * scale, lastSize.Y),
+                ImGui.ColorConvertFloat4ToU32(NoteAccent));
+
+            ImGui.SetWindowFontScale(scale * 0.72f);
+            ImGui.TextColored(NoteAccent, TagText);
+            ImGui.SetWindowFontScale(scale);
 
             foreach (var line in info.Entry.Content!.Split('\n'))
                 DrawLine(line, scale);

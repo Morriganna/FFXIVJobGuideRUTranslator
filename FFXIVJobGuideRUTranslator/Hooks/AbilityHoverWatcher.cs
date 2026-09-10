@@ -95,11 +95,15 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     private HoverInfo? currentValue;
     private long lastSeenTicksMs;
 
-    // С запасом больше одного кадра (даже при просадке до ~20 FPS это 50мс) на случай, если
-    // OnUpdate оверлея и OnAddonPostDraw аддона не синхронны по кадрам, но всё ещё достаточно
-    // мало, чтобы перевод не "зависал" в воздухе заметное время после того, как курсор реально
-    // убрали с умения.
-    private const long StaleAfterMs = 150;
+    // Оказалось (проверено на живом клиенте), что сам аддон ActionDetail НЕ перерисовывается
+    // каждый игровой кадр, пока его содержимое не меняется - PostDraw/PreDraw срабатывают
+    // заметно реже, чем 60 раз в секунду (похоже на dirty-flag оптимизацию движка), даже пока
+    // курсор всё это время неподвижно стоит на умении. При 150мс окно "свежести" оказывалось
+    // короче типичного промежутка между такими перерисовками - подсказка успевала "протухнуть"
+    // и погаснуть, хотя курсор с умения никто не убирал. Увеличено с запасом; для случая наведения
+    // прямо на хотбар это не единственная защита - см. RefreshIfStillHovering, который держит
+    // Current свежим на каждом кадре ImGui независимо от того, срабатывал ли в этом кадре PostDraw.
+    private const long StaleAfterMs = 500;
 
     public AbilityHoverWatcher(
         IAddonLifecycle addonLifecycle,
@@ -115,6 +119,35 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         this.repository = repository;
 
         ApplyRegistrations();
+    }
+
+    /// <summary>
+    /// Вызывать каждый кадр из Plugin.OnDraw (ImGui-кадр, срабатывает исправно каждый раз, в
+    /// отличие от PostDraw/PreDraw аддона - см. StaleAfterMs). Если IGameGui.HoveredAction прямо
+    /// сейчас всё ещё указывает на то же самое умение, что уже показано в Current, продлевает его
+    /// свежесть - тогда подсказка не гаснет из-за паузы в перерисовке родного аддона, пока курсор
+    /// реально остаётся на месте, и всё равно гаснет достаточно быстро (в пределах StaleAfterMs),
+    /// как только курсор реально уходит. Не помогает для случая "Actions & Traits" (там нет
+    /// HoveredAction, умение опознаётся по тексту в ноде) - для него единственная защита от
+    /// протухания - сам StaleAfterMs.
+    /// </summary>
+    public void RefreshIfStillHovering()
+    {
+        if (currentValue is not { } current)
+            return;
+
+        var hovered = gameGui.HoveredAction;
+        if (hovered.ActionId == 0 ||
+            (hovered.DetailKind != DetailKind.Action && hovered.DetailKind != DetailKind.CraftingAction))
+        {
+            return;
+        }
+
+        if (!repository.TryGetByActionId(hovered.ActionId, out var byId) || byId.Count == 0)
+            return;
+
+        if (ReferenceEquals(byId[0], current.Entry))
+            lastSeenTicksMs = Environment.TickCount64;
     }
 
     /// <summary>Перерегистрирует слушатели под текущий список Configuration.TargetAddonNames (вызывать после изменения настроек).</summary>

@@ -89,6 +89,11 @@ public sealed class Plugin : IDalamudPlugin
     {
         WindowSystem.Draw();
 
+        // Продлевает свежесть hoverWatcher.Current на каждом ImGui-кадре, пока курсор реально
+        // остаётся на том же умении хотбара - см. доккомментарий RefreshIfStillHovering. Нужно
+        // делать ДО чтения Current ниже (и в NativeTooltipOverlay.Draw, и в TranslationOverlay.Draw).
+        hoverWatcher?.RefreshIfStillHovering();
+
         // Оверлей с переводом рисуется отдельно поверх экрана - см. AbilityHoverWatcher и один из
         // двух вариантов оверлея:
         //  - обычный (по умолчанию) - TranslationOverlay, ImGui-окно, приближающее вид родной
