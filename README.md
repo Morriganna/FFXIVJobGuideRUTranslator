@@ -78,6 +78,33 @@ dotnet build -c Debug
 4. Если оно отличается от `ActionDetail` — откройте `/jgru` и добавьте настоящее имя в поле
    "Добавить аддон" (старое можно оставить или убрать). Изменения применяются сразу, без пересборки.
 
+## Установка через кастомный репозиторий (без Dev Plugin Locations)
+
+Плагин можно поставить обычным способом — через кастомный репозиторий Dalamud, без ручной сборки:
+
+1. В игре: `/xlsettings` -> вкладка `Experimental` -> `Custom Plugin Repositories`.
+2. В поле снизу вставить `https://raw.githubusercontent.com/Morriganna/FFXIVJobGuideRUTranslator/main/repo.json`,
+   нажать `+`, затем `Save`.
+3. `/xlplugins` -> найти "FFXIV JobGuide RU Translator" в общем списке -> `Install`.
+
+Этот `repo.json` автоматически создаётся и обновляется GitHub Action'ом (`.github/workflows/release.yml`)
+при выпуске релиза — вручную его редактировать не нужно.
+
+### Как выпустить релиз (для мейнтейнера)
+
+1. Поднять `<Version>` в [FFXIVJobGuideRUTranslator.csproj](FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj) —
+   иначе Dalamud не увидит новую версию как обновление.
+2. Закоммитить и запушить в `main`.
+3. Поставить тег и запушить его:
+
+   ```bash
+   git tag v0.1.1
+   git push origin v0.1.1
+   ```
+
+4. Workflow `Release` соберёт плагин, приложит `latest.zip` к GitHub Release с этим тегом и обновит
+   `repo.json` в `main` — после этого у всех, кто подключил репозиторий, появится обновление.
+
 ## Обновление перевода
 
 - `/jgru update` — скачивает свежие `DB/*.json` с GitHub и сохраняет их в папке конфигурации

@@ -1,0 +1,40 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+          cache: true
+          cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
+
+      - name: Setup Dalamud
+        uses: Blooym/setup-dalamud@v1
+        with:
+          branch: release
+
+      - name: Restore
+        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
+
+      - name: Build
+        run: dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj -c Release --no-restore
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: FFXIVJobGuideRUTranslator
+          path: |
+            FFXIVJobGuideRUTranslator/bin/Release/**
+          if-no-files-found: error

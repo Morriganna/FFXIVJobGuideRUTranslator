@@ -3,13 +3,13 @@
   <PropertyGroup>
     <Version>0.1.0.0</Version>
     <!-- Manifest fields (see https://github.com/goatcorp/DalamudPackager/blob/827d88dc/DalamudPackager/DalamudPackager.cs#L420) -->
-    <Author>your name here</Author>
+    <Author>Morriganna</Author>
     <Name>FFXIV JobGuide RU Translator</Name>
     <Punchline>Заменяет описание умений на перевод с ff14jobguide.ru.</Punchline>
     <Description>Подменяет ТОЛЬКО текст описания умения (не название) во всплывающей подсказке умения
 и в панели описания окна "Actions &amp; Traits" на русский перевод из проекта FFXIVJobGuideRU
 (https://github.com/Murakumo-JP/FFXIVJobGuideRU, https://ff14jobguide.ru). Ничего больше в интерфейсе не трогает.</Description>
-    <RepoUrl>https://github.com/your-name-here/FFXIVJobGuideRUTranslator</RepoUrl>
+    <RepoUrl>https://github.com/Morriganna/FFXIVJobGuideRUTranslator</RepoUrl>
     <Tags>translation;russian;localization;actions</Tags>
   </PropertyGroup>
 

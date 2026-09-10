@@ -1,0 +1,98 @@
+name: Release
+
+# Срабатывает только на пуш тега вида v0.1.1 - обычные пуши в main его не трогают.
+# Перед тегом не забудьте поднять <Version> в FFXIVJobGuideRUTranslator.csproj,
+# иначе Dalamud не увидит новую версию как обновление.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+          cache: true
+          cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
+
+      - name: Setup Dalamud
+        uses: Blooym/setup-dalamud@v1
+        with:
+          branch: release
+
+      - name: Restore
+        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
+
+      - name: Build
+        run: dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj -c Release --no-restore
+
+      - name: Locate DalamudPackager output
+        id: pkg
+        shell: pwsh
+        run: |
+          $dir = "FFXIVJobGuideRUTranslator/bin/Release/FFXIVJobGuideRUTranslator"
+          if (-not (Test-Path "$dir/latest.zip")) {
+            throw "latest.zip не найден в $dir - похоже, DalamudPackager не отработал (MakeZip)."
+          }
+          if (-not (Test-Path "$dir/FFXIVJobGuideRUTranslator.json")) {
+            throw "Манифест FFXIVJobGuideRUTranslator.json не найден в $dir."
+          }
+          "dir=$dir" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          files: ${{ steps.pkg.outputs.dir }}/latest.zip
+
+      # Собираем repo.json (pluginmaster) для кастомного репозитория Dalamud:
+      # https://dalamud.dev/plugin-publishing/custom-repositories/
+      # Пишем во временную папку, а не в рабочую копию - дальше переключаемся на main,
+      # где и должен лежать repo.json (тег может указывать на другой коммит).
+      - name: Build repo.json
+        id: repo
+        shell: pwsh
+        run: |
+          $manifest = Get-Content "${{ steps.pkg.outputs.dir }}/FFXIVJobGuideRUTranslator.json" -Raw | ConvertFrom-Json
+          $zipUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
+
+          $manifest | Add-Member -NotePropertyName DownloadLinkInstall -NotePropertyValue $zipUrl -Force
+          $manifest | Add-Member -NotePropertyName DownloadLinkUpdate -NotePropertyValue $zipUrl -Force
+          $manifest | Add-Member -NotePropertyName DownloadLinkTesting -NotePropertyValue $zipUrl -Force
+          $manifest | Add-Member -NotePropertyName IsHide -NotePropertyValue $false -Force
+          $manifest | Add-Member -NotePropertyName IsTestingExclusive -NotePropertyValue $false -Force
+          $manifest | Add-Member -NotePropertyName LastUpdate -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()) -Force
+
+          $outFile = Join-Path $env:RUNNER_TEMP "repo.json"
+          @($manifest) | ConvertTo-Json -Depth 10 | Set-Content -Path $outFile -Encoding utf8
+          "file=$outFile" >> $env:GITHUB_OUTPUT
+
+      - name: Publish repo.json to main
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          Copy-Item -Path "${{ steps.repo.outputs.file }}" -Destination "repo.json" -Force
+          git add repo.json
+          $status = git status --porcelain
+          if ($status) {
+            git commit -m "chore: update repo.json for ${{ github.ref_name }}"
+            git push origin main
+          } else {
+            Write-Host "repo.json не изменился, коммит не нужен."
+          }
