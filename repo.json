@@ -22,9 +22,10 @@
     "AcceptsFeedback": true,
     "DownloadLinkInstall": "https://github.com/Morriganna/FFXIVJobGuideRUTranslator/releases/download/v0.0.3/latest.zip",
     "DownloadLinkUpdate": "https://github.com/Morriganna/FFXIVJobGuideRUTranslator/releases/download/v0.0.3/latest.zip",
-    "DownloadLinkTesting": "https://github.com/Morriganna/FFXIVJobGuideRUTranslator/releases/download/v0.0.3/latest.zip",
     "IsHide": false,
     "IsTestingExclusive": false,
-    "LastUpdate": "1789036510"
+    "LastUpdate": "1789036510",
+    "TestingAssemblyVersion": "0.1.0.1",
+    "DownloadLinkTesting": "https://github.com/Morriganna/FFXIVJobGuideRUTranslator/releases/download/testing_0.1.0.1/latest.zip"
   }
 ]
