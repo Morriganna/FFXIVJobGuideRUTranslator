@@ -1,4 +1,4 @@
-namespace FFXIVJobGuideRUTranslator.Data;
+﻿namespace FFXIVJobGuideRUTranslator.Translation;
 
 /// <summary>
 /// Один переведённый кусок текста умения, уже приведённый к плоскому виду и

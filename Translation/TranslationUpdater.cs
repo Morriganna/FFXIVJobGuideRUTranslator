@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -8,7 +8,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Dalamud.Plugin.Services;
 
-namespace FFXIVJobGuideRUTranslator.Data;
+namespace FFXIVJobGuideRUTranslator.Translation;
 
 /// <summary>
 /// Скачивает свежие переводы из DB/*.json репозитория Murakumo-JP/FFXIVJobGuideRU на GitHub

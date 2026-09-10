@@ -1,4 +1,4 @@
-name: Release
+﻿name: Release
 
 # Срабатывает на пуш тега вида v0.1.1, либо запускается вручную (Actions -> Release -> Run
 # workflow) с вводом номера версии - тогда тег создаёт и пушит сам. Обычные пуши в main его не
@@ -66,7 +66,7 @@ jobs:
           # .NET 10 - требует KamiToolKit 2.2.39 (net10.0-windows7.0), см. csproj.
           dotnet-version: "10.0.x"
           cache: true
-          cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
+          cache-dependency-path: packages.lock.json
 
       - name: Setup Dalamud
         uses: Blooym/setup-dalamud@v1
@@ -74,11 +74,11 @@ jobs:
           branch: release
 
       - name: Restore
-        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
+        run: dotnet restore FFXIVJobGuideRUTranslator.csproj --locked-mode
 
       - name: Build
         run: >
-          dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj
+          dotnet build FFXIVJobGuideRUTranslator.csproj
           -c Release --no-restore
           -p:Version=${{ steps.tag.outputs.version }}
 
@@ -86,7 +86,7 @@ jobs:
         id: pkg
         shell: pwsh
         run: |
-          $dir = "FFXIVJobGuideRUTranslator/bin/Release/FFXIVJobGuideRUTranslator"
+          $dir = "bin/Release/FFXIVJobGuideRUTranslator"
           if (-not (Test-Path "$dir/latest.zip")) {
             throw "latest.zip не найден в $dir - похоже, DalamudPackager не отработал (MakeZip)."
           }

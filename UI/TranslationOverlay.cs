@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Text.RegularExpressions;
@@ -7,10 +7,10 @@ using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ManagedFontAtlas;
 using Dalamud.Interface.Textures;
 using Dalamud.Plugin.Services;
-using FFXIVJobGuideRUTranslator.Data;
-using FFXIVJobGuideRUTranslator.Hooks;
+using FFXIVJobGuideRUTranslator.Translation;
+using FFXIVJobGuideRUTranslator.Services;
 
-namespace FFXIVJobGuideRUTranslator.Windows;
+namespace FFXIVJobGuideRUTranslator.UI;
 
 /// <summary>
 /// Рисует перевод умения в отдельном окне ImGui рядом с курсором, поверх экрана - не трогает
@@ -102,8 +102,8 @@ public static class TranslationOverlay
         return Math.Clamp(display.Y / baselineHeight, MinScale, MaxScale);
     }
 
-    /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
-    public static void Draw(AbilityHoverWatcher.HoverInfo? hover, TranslationRepository repository, ITextureProvider textureProvider)
+    /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw. showActionId - настройка Configuration.ShowActionId (отладка).</summary>
+    public static void Draw(AbilityHoverWatcher.HoverInfo? hover, TranslationRepository repository, ITextureProvider textureProvider, bool showActionId)
     {
         if (hover is null || string.IsNullOrEmpty(hover.Value.Entry.Content))
             return;
@@ -172,7 +172,7 @@ public static class TranslationOverlay
             // берёт ещё большую ширину -> и так вразнос до края экрана).
             var wrapWidth = Math.Max(BaseWrapWidth * scale, MeasureFixedRowsWidth(info.Entry, hasStats ? stats : null, scale));
 
-            DrawHeader(info.Entry, hasStats ? stats : null, iconId, textureProvider, scale, wrapWidth);
+            DrawHeader(info.Entry, hasStats ? stats : null, iconId, textureProvider, scale, wrapWidth, showActionId);
 
             if (hasStats)
                 DrawCastRecastRow(stats, scale);
@@ -233,8 +233,8 @@ public static class TranslationOverlay
         return Math.Max(headerWidth, castRecastWidth);
     }
 
-    /// <summary>Иконка + имя + классификация (слева) и Дальность/Радиус (справа) под именем.</summary>
-    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, uint? iconId, ITextureProvider textureProvider, float scale, float wrapWidth)
+    /// <summary>Иконка + имя (+ ID умения, если включена отладочная настройка) слева, классификация (слева) и Дальность/Радиус (справа) под именем.</summary>
+    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, uint? iconId, ITextureProvider textureProvider, float scale, float wrapWidth, bool showActionId)
     {
         if (stats is not null && iconId is { } id)
         {
@@ -249,6 +249,15 @@ public static class TranslationOverlay
         ImGui.SetWindowFontScale(scale * 1.3f);
         ImGui.TextUnformatted(entry.EnglishName);
         ImGui.SetWindowFontScale(scale);
+
+        if (showActionId)
+        {
+            // В правом верхнем углу, на одной строке с именем - см. Configuration.ShowActionId.
+            var idText = $"#{entry.ActionId}";
+            var idWidth = ImGui.CalcTextSize(idText).X;
+            ImGui.SameLine(Math.Max(ImGui.GetCursorPosX(), wrapWidth - idWidth));
+            ImGui.TextColored(LabelColor, idText);
+        }
 
         var rangeText = stats is { } s2 ? $"Дальность {FormatYalms(s2.Range)} · Радиус {FormatYalms(s2.Radius)}" : null;
         var hasClassification = !string.IsNullOrEmpty(entry.Classification);

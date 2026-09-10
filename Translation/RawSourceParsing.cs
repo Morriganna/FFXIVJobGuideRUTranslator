@@ -1,8 +1,8 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
-namespace FFXIVJobGuideRUTranslator.Data;
+namespace FFXIVJobGuideRUTranslator.Translation;
 
 /// <summary>
 /// Разбор "сырых" JSON-файлов из DB/*.json репозитория FFXIVJobGuideRU.

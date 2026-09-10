@@ -1,9 +1,9 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Dalamud.Game;
 using Dalamud.Plugin.Services;
 
-namespace FFXIVJobGuideRUTranslator.Data;
+namespace FFXIVJobGuideRUTranslator.Translation;
 
 /// <summary>Доп. статы умения (иконка/каст/восстановление/дальность/радиус/уровень/работы) из листа Lumina Action - см. TranslationOverlay. Только для боевых умений, у CraftAction другая структура.</summary>
 public readonly record struct ActionStats(

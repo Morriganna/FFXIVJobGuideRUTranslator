@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
 using Dalamud.Game.Addon.Lifecycle;
@@ -6,9 +6,9 @@ using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Gui;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
-using FFXIVJobGuideRUTranslator.Data;
+using FFXIVJobGuideRUTranslator.Translation;
 
-namespace FFXIVJobGuideRUTranslator.Hooks;
+namespace FFXIVJobGuideRUTranslator.Services;
 
 /// <summary>
 /// Следит, какое (если вообще какое-то) переведённое умение сейчас показано в одном из окон из
@@ -217,8 +217,10 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 // сигнал "курсор всё ещё тут" (см. комментарий у currentValue). С альфой IsVisible
                 // остаётся настоящим, каким его держит сама игра - PreDraw продолжает исправно
                 // вызываться, пока реально наведено, и гаснет ровно тогда, когда гаснет он.
+                // ShowNativeTooltip (настройка) - если включена, оставляем альфу как есть (видимой),
+                // родная подсказка показывается вместе с нашей.
                 if (addon->RootNode is not null)
-                    ((AtkResNode*)addon->RootNode)->Color.A = 0;
+                    ((AtkResNode*)addon->RootNode)->Color.A = (byte)(configuration.ShowNativeTooltip ? 255 : 0);
             }
             else
             {

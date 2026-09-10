@@ -1,4 +1,4 @@
-name: Test build
+﻿name: Test build
 
 # Автособирает тестовую версию на каждый пуш в main - без ручных тегов, версию и тег бот
 # генерирует сам (Major.Minor.Build из <Version> в .csproj + номер запуска workflow).
@@ -35,7 +35,7 @@ jobs:
           # .NET 10 - требует KamiToolKit 2.2.39 (net10.0-windows7.0), см. csproj.
           dotnet-version: "10.0.x"
           cache: true
-          cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
+          cache-dependency-path: packages.lock.json
 
       - name: Setup Dalamud
         uses: Blooym/setup-dalamud@v1
@@ -49,7 +49,7 @@ jobs:
         id: version
         shell: pwsh
         run: |
-          $csprojPath = "FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj"
+          $csprojPath = "FFXIVJobGuideRUTranslator.csproj"
           [xml]$xml = Get-Content $csprojPath -Raw
           $baseVersion = ($xml.Project.PropertyGroup.Version | Select-Object -First 1)
           $parts = $baseVersion.Split(".")
@@ -63,11 +63,11 @@ jobs:
           "tag=testing_$testingVersion" >> $env:GITHUB_OUTPUT
 
       - name: Restore
-        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
+        run: dotnet restore FFXIVJobGuideRUTranslator.csproj --locked-mode
 
       - name: Build
         run: >
-          dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj
+          dotnet build FFXIVJobGuideRUTranslator.csproj
           -c Release --no-restore
           -p:Version=${{ steps.version.outputs.version }}
 
@@ -75,7 +75,7 @@ jobs:
         id: pkg
         shell: pwsh
         run: |
-          $dir = "FFXIVJobGuideRUTranslator/bin/Release/FFXIVJobGuideRUTranslator"
+          $dir = "bin/Release/FFXIVJobGuideRUTranslator"
           if (-not (Test-Path "$dir/latest.zip")) {
             throw "latest.zip не найден в $dir - похоже, DalamudPackager не отработал (MakeZip)."
           }

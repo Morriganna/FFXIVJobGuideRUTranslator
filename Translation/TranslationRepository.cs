@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Dalamud.Game;
 using Dalamud.Plugin.Services;
 
-namespace FFXIVJobGuideRUTranslator.Data;
+namespace FFXIVJobGuideRUTranslator.Translation;
 
 /// <summary>
 /// Держит в памяти весь загруженный перевод и его сопоставление с реальными ID умений игры.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -10,9 +10,9 @@ using Dalamud.IoC;
 using Dalamud.Interface.Windowing;
 using Dalamud.Plugin;
 using Dalamud.Plugin.Services;
-using FFXIVJobGuideRUTranslator.Data;
-using FFXIVJobGuideRUTranslator.Hooks;
-using FFXIVJobGuideRUTranslator.Windows;
+using FFXIVJobGuideRUTranslator.Translation;
+using FFXIVJobGuideRUTranslator.Services;
+using FFXIVJobGuideRUTranslator.UI;
 
 namespace FFXIVJobGuideRUTranslator;
 
@@ -92,7 +92,7 @@ public sealed class Plugin : IDalamudPlugin
         WindowSystem.Draw();
 
         hoverWatcher?.RefreshIfCursorStable(ImGui.GetIO().MousePos);
-        TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
+        TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider, Configuration.ShowActionId);
     }
 
     /// <summary>Дамп умений текущей работы персонажа для вкладки "Debug" окна настроек - см. JobActionDump.</summary>

@@ -1,4 +1,4 @@
-name: Build
+﻿name: Build
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
           # .NET 10 - требует KamiToolKit 2.2.39 (net10.0-windows7.0), см. csproj.
           dotnet-version: "10.0.x"
           cache: true
-          cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
+          cache-dependency-path: packages.lock.json
 
       - name: Setup Dalamud
         uses: Blooym/setup-dalamud@v1
@@ -27,15 +27,15 @@ jobs:
           branch: release
 
       - name: Restore
-        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
+        run: dotnet restore FFXIVJobGuideRUTranslator.csproj --locked-mode
 
       - name: Build
-        run: dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj -c Release --no-restore
+        run: dotnet build FFXIVJobGuideRUTranslator.csproj -c Release --no-restore
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
         with:
           name: FFXIVJobGuideRUTranslator
           path: |
-            FFXIVJobGuideRUTranslator/bin/Release/**
+            bin/Release/**
           if-no-files-found: error

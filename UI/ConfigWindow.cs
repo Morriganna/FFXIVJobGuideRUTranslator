@@ -1,13 +1,13 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text.Json;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
-using FFXIVJobGuideRUTranslator.Data;
+using FFXIVJobGuideRUTranslator.Translation;
 
-namespace FFXIVJobGuideRUTranslator.Windows;
+namespace FFXIVJobGuideRUTranslator.UI;
 
 public class ConfigWindow : Window, IDisposable
 {
@@ -59,6 +59,22 @@ public class ConfigWindow : Window, IDisposable
             configuration.Save();
         }
         ImGui.TextWrapped("Заменяет только текст описания умения в подсказке на хотбаре и в панели \"Actions & Traits\" - название умения и остальной интерфейс не трогает.");
+
+        var showNative = configuration.ShowNativeTooltip;
+        if (ImGui.Checkbox("Показывать родную подсказку", ref showNative))
+        {
+            configuration.ShowNativeTooltip = showNative;
+            configuration.Save();
+        }
+        ImGui.TextWrapped("По умолчанию плагин прячет родную подсказку игры, пока показывает свою - включите, чтобы обе были видны одновременно (для сравнения/отладки).");
+
+        var showActionId = configuration.ShowActionId;
+        if (ImGui.Checkbox("Показывать ID умения в подсказке", ref showActionId))
+        {
+            configuration.ShowActionId = showActionId;
+            configuration.Save();
+        }
+        ImGui.TextWrapped("В правом верхнем углу нашей подсказки покажется ActionId наведённого умения.");
 
         ImGui.Separator();
         ImGui.TextUnformatted($"Загружено записей перевода: {plugin.Repository.TotalParsed}");

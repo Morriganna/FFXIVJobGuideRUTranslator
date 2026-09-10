@@ -1,11 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Dalamud.Game;
 using Dalamud.Plugin.Services;
 
-namespace FFXIVJobGuideRUTranslator.Data;
+namespace FFXIVJobGuideRUTranslator.Translation;
 
 /// <summary>Одна строка debug-дампа: умение, доступное текущей работе игрока, и статус его перевода.</summary>
 public sealed class JobActionDumpRow
@@ -39,27 +39,26 @@ public static class JobActionDump
     public const string GroupRole = "Role";
     public const string GroupRolePvp = "PvP Role";
 
-    // Все актуальные трёхбуквенные коды работ/базовых классов (боевые + DoH/DoL - последние тут
-    // не помешают, для Action они всё равно не будут true, зато не собьют подсчёт "сколько работ
-    // отмечено на этой строке ClassJobCategory" у боевых категорий). Список стабилен между патчами
-    // (новые коды добавляются, старые не переименовываются), в отличие от точных имён C#-свойств
-    // Lumina, поэтому не полагаемся тут на рефлексию списка целиком - только на поиск конкретного
-    // свойства по имени (см. CategoryIncludesJob).
+    // Трёхбуквенные коды боевых работ/базовых классов, сгруппированные по роли - список стабилен
+    // между патчами (новые коды добавляются, старые не переименовываются), в отличие от точных
+    // имён C#-свойств Lumina, поэтому не полагаемся тут на рефлексию списка целиком - только на
+    // поиск конкретного свойства по имени (см. CategoryIncludesJob). Группировка по ролям нужна
+    // IsRoleOrUniqueAction, чтобы отличить настоящее Role-умение (Second Wind и т.п. - все job-флаги
+    // категории укладываются в ОДНУ роль) от строк, которые формально отмечены сразу для кучи работ
+    // из разных ролей (лимит-брейки других ролей, системные строки вроде "Unpacking Minion") - те
+    // персонаж реально не использует как умение своей роли, хоть его job-флаг там тоже true.
+    private static readonly string[][] RoleGroups =
+    {
+        new[] { "GLA", "PLD", "MRD", "WAR", "DRK", "GNB" }, // Tank
+        new[] { "CNJ", "WHM", "SCH", "AST", "SGE" }, // Healer
+        new[] { "PGL", "MNK", "LNC", "DRG", "ROG", "NIN", "SAM", "RPR", "VPR" }, // Melee DPS
+        new[] { "ARC", "BRD", "MCH", "DNC" }, // Physical Ranged DPS
+        new[] { "THM", "BLM", "ACN", "SMN", "RDM", "PCT", "BLU" }, // Magical Ranged DPS
+    };
+
     // internal, не private - переиспользуется ActionStatsLookup (Affinity: тот же список кодов и
     // тот же способ чтения bool-флагов ClassJobCategory через рефлексию, см. CategoryIncludesJob).
-    internal static readonly string[] AllJobAbbreviations =
-    {
-        // Tank
-        "GLA", "PLD", "MRD", "WAR", "DRK", "GNB",
-        // Healer
-        "CNJ", "WHM", "SCH", "AST", "SGE",
-        // Melee DPS
-        "PGL", "MNK", "LNC", "DRG", "ROG", "NIN", "SAM", "RPR", "VPR",
-        // Physical Ranged DPS
-        "ARC", "BRD", "MCH", "DNC",
-        // Magical Ranged DPS
-        "THM", "BLM", "ACN", "SMN", "RDM", "PCT", "BLU",
-    };
+    internal static readonly string[] AllJobAbbreviations = RoleGroups.SelectMany(g => g).ToArray();
 
     /// <summary>
     /// Строит дамп для работы, на которой сейчас находится персонаж.
@@ -117,8 +116,8 @@ public static class JobActionDump
                     continue; // не привязано к конкретной работе (системное/неигровое умение, Quick Chat)
 
                 var category = row.ClassJobCategory.Value;
-                if (!CategoryIncludesJob(category, abbreviation))
-                    continue; // этой работе умение вообще не доступно
+                if (!IsRoleOrUniqueAction(category, abbreviation))
+                    continue; // не доступно этой работе, или отмечено сразу для нескольких ролей (не настоящее Role-умение)
 
                 // IsPvP - как и ClassJobCategory, обычное bool-поле листа Action в текущих версиях
                 // Lumina; используется, чтобы отделить обычный класс от вкладки PvP Actions.
@@ -158,6 +157,30 @@ public static class JobActionDump
             GroupRolePvp => 3,
             _ => 4,
         };
+    }
+
+    /// <summary>
+    /// true, если jobAbbreviation входит в категорию, И все отмеченные в ней работы (из всех
+    /// известных, см. AllJobAbbreviations) укладываются в ОДНУ ролевую группу jobAbbreviation (см.
+    /// RoleGroups) - то есть это либо уникальное для работы умение, либо настоящее Role-умение
+    /// именно её роли. Если хоть одна отмеченная работа - из другой роли, это не Role-умение
+    /// jobAbbreviation (просто у строки в листе Action широкая категория на кучу ролей сразу -
+    /// пример: лимит-брейки других ролей, "Unpacking Minion"), и её пропускаем.
+    /// </summary>
+    private static bool IsRoleOrUniqueAction<TCategory>(TCategory category, string jobAbbreviation)
+        where TCategory : struct
+    {
+        var roleGroup = Array.Find(RoleGroups, g => Array.IndexOf(g, jobAbbreviation) >= 0);
+        if (roleGroup is null || !CategoryIncludesJob(category, jobAbbreviation))
+            return false;
+
+        foreach (var code in AllJobAbbreviations)
+        {
+            if (CategoryIncludesJob(category, code) && Array.IndexOf(roleGroup, code) < 0)
+                return false; // задета работа за пределами роли jobAbbreviation
+        }
+
+        return true;
     }
 
     /// <summary>
