@@ -88,6 +88,12 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             if (addon is null)
                 return;
 
+            // PostDraw срабатывает и для окон, которые технически существуют, но сейчас реально
+            // не показаны игроку (например, ActionDetail не открыт, но продолжает рендериться в
+            // фоне) - без этой проверки перевод "утекает" на экран без рамки окна поверх всего остального.
+            if (!addon->IsVisible)
+                return;
+
             TranslationEntry? entry = null;
 
             // Для всплывающей подсказки на хотбаре: точный ActionId через Dalamud, без поиска по тексту.
