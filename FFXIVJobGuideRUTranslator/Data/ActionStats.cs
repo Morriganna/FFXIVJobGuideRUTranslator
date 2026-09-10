@@ -37,20 +37,29 @@ public static class ActionStatsLookup
 
             foreach (var row in sheet)
             {
-                var jobs = row.ClassJobCategory.RowId == 0
-                    ? System.Array.Empty<string>()
-                    : JobActionDump.AllJobAbbreviations
-                        .Where(code => JobActionDump.CategoryIncludesJob(row.ClassJobCategory.Value, code))
-                        .ToArray();
+                try
+                {
+                    var jobs = row.ClassJobCategory.RowId == 0
+                        ? System.Array.Empty<string>()
+                        : JobActionDump.AllJobAbbreviations
+                            .Where(code => JobActionDump.CategoryIncludesJob(row.ClassJobCategory.Value, code))
+                            .ToArray();
 
-                result[row.RowId] = new ActionStats(
-                    row.Icon,
-                    row.Cast100ms,
-                    row.Recast100ms,
-                    row.Range,
-                    row.EffectRange,
-                    row.ClassJobLevel,
-                    jobs);
+                    result[row.RowId] = new ActionStats(
+                        row.Icon,
+                        row.Cast100ms,
+                        row.Recast100ms,
+                        row.Range,
+                        row.EffectRange,
+                        row.ClassJobLevel,
+                        jobs);
+                }
+                catch (System.Exception ex)
+                {
+                    // Одна битая строка (например, RowRef на ClassJobCategory не резолвится) не
+                    // должна обрывать весь проход и терять статы всех остальных умений.
+                    log.Warning(ex, $"[JobGuideRU] Пропускаю строку Action при чтении доп. статов (RowId={row.RowId}).");
+                }
             }
         }
         catch (System.Exception ex)

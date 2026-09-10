@@ -215,11 +215,16 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 if (addon->RootNode is not null)
                     ((AtkResNode*)addon->RootNode)->Color.A = 0;
             }
-            else if (addon->RootNode is not null && ((AtkResNode*)addon->RootNode)->Color.A == 0)
+            else
             {
-                // Другое использование того же переиспользуемого попапа (Materia Extraction,
-                // Repair и т.п.) - обязательно возвращаем альфу, иначе оно останется прозрачным.
-                ((AtkResNode*)addon->RootNode)->Color.A = 255;
+                // Тот же переиспользуемый попап сейчас показывает что-то без перевода (другое
+                // умение на хотбаре, Materia Extraction, Repair и т.п.) - сразу гасим наш оверлей,
+                // а не ждём StaleAfterMs, иначе он повиснет поверх уже разблокированной родной
+                // подсказки этого нового умения.
+                currentValue = null;
+
+                if (addon->RootNode is not null && ((AtkResNode*)addon->RootNode)->Color.A == 0)
+                    ((AtkResNode*)addon->RootNode)->Color.A = 255;
             }
         }
         catch (Exception ex)

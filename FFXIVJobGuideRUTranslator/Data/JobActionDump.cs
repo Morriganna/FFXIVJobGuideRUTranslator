@@ -169,6 +169,12 @@ public static class JobActionDump
         return onlyMatch == jobAbbreviation;
     }
 
+    // Кэш PropertyInfo по (тип строки, код работы) - CategoryIncludesJob вызывается на каждую
+    // строку листа Action при каждом Reload (~14к строк * ~34 кода), без кэша Type.GetProperty
+    // столько же раз через рефлексию - заметная задержка (в т.ч. синхронно в UI-потоке при
+    // "Перезагрузить встроенный бандл").
+    private static readonly Dictionary<(Type, string), PropertyInfo?> CategoryPropertyCache = new();
+
     /// <summary>
     /// Лист ClassJobCategory хранит доступность умения по работам как набор bool-колонок,
     /// по одной на каждый трёхбуквенный код работы (PLD, WAR, ...). Ищем через рефлексию, а не
@@ -178,11 +184,16 @@ public static class JobActionDump
     internal static bool CategoryIncludesJob<TCategory>(TCategory category, string jobAbbreviation)
         where TCategory : struct
     {
-        var property = typeof(TCategory).GetProperty(jobAbbreviation, BindingFlags.Public | BindingFlags.Instance);
-        if (property is null || property.PropertyType != typeof(bool))
-            return false;
+        var key = (typeof(TCategory), jobAbbreviation);
+        if (!CategoryPropertyCache.TryGetValue(key, out var property))
+        {
+            property = typeof(TCategory).GetProperty(jobAbbreviation, BindingFlags.Public | BindingFlags.Instance);
+            if (property is not null && property.PropertyType != typeof(bool))
+                property = null;
+            CategoryPropertyCache[key] = property;
+        }
 
-        return property.GetValue(category) is true;
+        return property is not null && property.GetValue(category) is true;
     }
 
     /// <summary>Достаёт произвольное bool-свойство через рефлексию; false, если его нет/не bool - см. использование у IsPvP.</summary>

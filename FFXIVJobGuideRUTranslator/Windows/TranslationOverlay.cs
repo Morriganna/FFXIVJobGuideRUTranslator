@@ -205,14 +205,18 @@ public static class TranslationOverlay
         ImGui.SetWindowFontScale(scale);
 
         var rangeText = stats is { } s2 ? $"Дальность {FormatYalms(s2.Range)} · Радиус {FormatYalms(s2.Radius)}" : null;
-        if (!string.IsNullOrEmpty(entry.Classification))
+        var hasClassification = !string.IsNullOrEmpty(entry.Classification);
+        if (hasClassification)
             ImGui.TextColored(LabelColor, entry.Classification);
+
         if (rangeText is not null)
         {
-            if (!string.IsNullOrEmpty(entry.Classification))
-                ImGui.SameLine();
             var rangeWidth = ImGui.CalcTextSize(rangeText).X;
-            ImGui.SameLine(Math.Max(ImGui.GetCursorPosX(), BaseWrapWidth * scale - rangeWidth));
+            var targetX = Math.Max(ImGui.GetCursorPosX(), BaseWrapWidth * scale - rangeWidth);
+            if (hasClassification)
+                ImGui.SameLine(targetX); // продолжаем строку классификации
+            else
+                ImGui.SetCursorPosX(targetX); // классификации нет - курсор и так уже на новой строке под именем
             ImGui.TextColored(LabelColor, rangeText);
         }
 
@@ -245,7 +249,12 @@ public static class TranslationOverlay
         {
             ImGui.TextColored(LabelColor, "Работы:");
             ImGui.SameLine();
-            RenderLineTokens(new List<Token> { new(string.Join("  ", stats.Jobs), TextColor) }, BaseWrapWidth * scale);
+
+            // По словам, а не одним слитным токеном - иначе длинный список работ не переносится
+            // по ширине окна, а просто раздувает его вширь.
+            var jobTokens = new List<Token>();
+            AppendPlainWords(string.Join("  ", stats.Jobs), jobTokens, TextColor);
+            RenderLineTokens(jobTokens, BaseWrapWidth * scale);
         }
     }
 
@@ -281,7 +290,9 @@ public static class TranslationOverlay
             if (!line.StartsWith(prefix, StringComparison.Ordinal))
                 continue;
             var colonIndex = line.IndexOf(':');
-            if (colonIndex >= 0)
+            // Двоеточие должно быть недалеко от метки - иначе это не "Метка:", а случайное
+            // двоеточие где-то дальше в предложении, начинающемся с того же слова.
+            if (colonIndex >= 0 && colonIndex - prefix.Length <= 40)
                 return colonIndex + 1;
         }
 
