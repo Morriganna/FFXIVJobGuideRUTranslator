@@ -13,7 +13,10 @@ permissions:
 env:
   SOURCE_OWNER: Murakumo-JP
   SOURCE_REPO: FFXIVJobGuideRU
-  SOURCE_BRANCH: main
+  # Patch-7.51, а не main: в этой ветке у записей уже есть "id" (настоящий ActionId игры),
+  # сопоставление по нему надёжнее, чем по имени (см. TranslationRepository.cs). Тестовая ветка -
+  # когда её сольют в main, стоит вернуть на "main" (тот же id появится и там).
+  SOURCE_BRANCH: Patch-7.51
   TARGET_DIR: FFXIVJobGuideRUTranslator/Data/SourceJson
 
 jobs:

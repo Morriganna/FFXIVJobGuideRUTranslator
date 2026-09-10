@@ -16,6 +16,12 @@ namespace FFXIVJobGuideRUTranslator.Data;
 ///  2) JSON, вшитый в сборку на этапе компиляции (Data/SourceJson/**), как резервный вариант.
 ///
 /// Ничего не подменяется в самих названиях умений — они используются только как ключ поиска.
+///
+/// Сопоставление с ActionId/CraftActionId, в порядке приоритета:
+///  1) напрямую из поля "id" исходного JSON, если оно там есть (TranslationEntry.SourceActionId) -
+///     100% точно, проверено сверкой с реальными данными игры;
+///  2) поиск по точному совпадению английского названия с листами Action/CraftAction (Lumina) -
+///     резервный вариант для более старых веток источника, где поля "id" ещё нет.
 /// </summary>
 public sealed class TranslationRepository
 {
@@ -100,6 +106,24 @@ public sealed class TranslationRepository
                 byEnglishName[entry.EnglishName] = list = new List<TranslationEntry>();
             list.Add(entry);
         }
+
+        // Сначала - записи, где ActionId уже пришёл прямо из исходного JSON (SourceActionId,
+        // см. RawSourceParsing/TranslationEntry) - это надёжнее сопоставления по имени, поэтому
+        // для них поиск по листам Action/CraftAction ниже просто пропускается (см. IsResolved
+        // внутри ResolveActionIds - уже сопоставленные записи там не трогаются).
+        var resolvedById = 0;
+        foreach (var entry in parsed)
+        {
+            if (entry.SourceActionId is not { } sourceId || sourceId == 0)
+                continue;
+
+            entry.ActionId = sourceId;
+            entry.ResolvedSheet = "id (источник)";
+            resolvedById++;
+        }
+
+        if (resolvedById > 0)
+            log.Information($"[JobGuideRU] Сопоставлено напрямую по id из исходного JSON: {resolvedById}.");
 
         ResolveActionIds(parsed);
 

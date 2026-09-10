@@ -24,6 +24,14 @@ public sealed class TranslationEntry
     public string? Content { get; init; }
 
     /// <summary>
+    /// ActionId, взятый ПРЯМО из поля "id" исходного JSON, если оно там есть (на порядок надёжнее
+    /// сопоставления по имени - см. TranslationRepository.Reload: если это поле задано, оно
+    /// используется как есть, без поиска по листам Action/CraftAction). Null, если в этой ветке
+    /// источника такого поля ещё нет - тогда запись сопоставляется по EnglishName, как раньше.
+    /// </summary>
+    public uint? SourceActionId { get; init; }
+
+    /// <summary>
     /// Английское описание умения из данных игры (Lumina), заполняется при разрешении ID.
     /// Используется, чтобы находить нужный текстовый узел по совпадению текста, без завязки на ID нод.
     /// </summary>

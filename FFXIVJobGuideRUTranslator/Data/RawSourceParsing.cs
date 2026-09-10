@@ -35,6 +35,10 @@ public static class RawSourceParsing
 
             entry.TryGetProperty("classification", out var classificationEl);
             entry.TryGetProperty("content", out var contentEl);
+            // "id" - настоящий ActionId/CraftActionId игры, если он уже есть в этой ветке
+            // источника (пока не во всех - см. TranslationEntry.SourceActionId). Такой же
+            // возможный "простое значение или объект по job-коду" формы, как у остальных полей.
+            entry.TryGetProperty("id", out var idEl);
 
             if (nameEl.ValueKind == JsonValueKind.String)
             {
@@ -49,6 +53,7 @@ public static class RawSourceParsing
                     JobCode = null,
                     Classification = AsString(classificationEl),
                     Content = CleanContent(AsString(contentEl)),
+                    SourceActionId = AsUInt(idEl),
                 };
             }
             else if (nameEl.ValueKind == JsonValueKind.Object)
@@ -67,6 +72,7 @@ public static class RawSourceParsing
                         JobCode = jobCode,
                         Classification = AsStringForJob(classificationEl, jobCode),
                         Content = CleanContent(AsStringForJob(contentEl, jobCode)),
+                        SourceActionId = AsUIntForJob(idEl, jobCode),
                     };
                 }
             }
@@ -82,6 +88,18 @@ public static class RawSourceParsing
             return el.GetString(); // одно значение на все job-коды
         if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty(jobCode, out var byJob) && byJob.ValueKind == JsonValueKind.String)
             return byJob.GetString();
+        return null;
+    }
+
+    private static uint? AsUInt(JsonElement el)
+        => el.ValueKind == JsonValueKind.Number && el.TryGetUInt32(out var value) ? value : null;
+
+    private static uint? AsUIntForJob(JsonElement el, string jobCode)
+    {
+        if (el.ValueKind == JsonValueKind.Number)
+            return AsUInt(el); // одно значение на все job-коды
+        if (el.ValueKind == JsonValueKind.Object && el.TryGetProperty(jobCode, out var byJob))
+            return AsUInt(byJob);
         return null;
     }
 

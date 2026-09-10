@@ -19,7 +19,11 @@ public static class TranslationUpdater
 {
     private const string Owner = "Murakumo-JP";
     private const string Repo = "FFXIVJobGuideRU";
-    private const string Branch = "main";
+    // Patch-7.51, а не main: в этой ветке у записей уже есть поле "id" (настоящий ActionId
+    // игры) - сверено с реальными данными, сопоставление по нему на порядок надёжнее, чем по
+    // имени (см. TranslationRepository). Это тестовая ветка источника - когда её сольют в main,
+    // стоит вернуть Branch на "main" (в main тот же id тоже появится).
+    private const string Branch = "Patch-7.51";
     private const string TreeApiUrl = $"https://api.github.com/repos/{Owner}/{Repo}/git/trees/{Branch}?recursive=1";
     private const string RawBaseUrl = $"https://raw.githubusercontent.com/{Owner}/{Repo}/{Branch}/";
 
