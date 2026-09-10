@@ -20,7 +20,8 @@ namespace FFXIVJobGuideRUTranslator.Hooks;
 ///
 /// Вместо этого этот класс только СМОТРИТ, какое (если вообще какое-то) переведённое умение
 /// сейчас показано в одном из окон из Configuration.TargetAddonNames, и выставляет
-/// <see cref="CurrentEntry"/>. Подсказку/панель самой игры это не меняет и не может сломать -
+/// <see cref="Current"/> (само умение + экранные координаты родного окна). Подсказку/панель
+/// самой игры это не меняет и не может сломать -
 /// перевод рисуется отдельным всплывающим окном ImGui поверх экрана (см. TranslationOverlay),
 /// которое само разворачивается под любой объём текста.
 ///
@@ -43,8 +44,11 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     private readonly HashSet<string> registeredAddonNames = new();
 
-    /// <summary>Умение, показанное прямо сейчас в одном из отслеживаемых окон, или null. Живёт один кадр (см. <see cref="ResetForNextFrame"/>).</summary>
-    public TranslationEntry? CurrentEntry { get; private set; }
+    /// <summary>Умение + экранные координаты и размер РОДНОГО окна, в котором оно показано - только чтение, координаты нужны, чтобы поставить перевод рядом, а не там, где сейчас курсор мыши (иначе в списках/панелях перевод оказывается где попало и перекрывает контент).</summary>
+    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height);
+
+    /// <summary>Что показано прямо сейчас в одном из отслеживаемых окон, или null. Живёт один кадр (см. <see cref="ResetForNextFrame"/>).</summary>
+    public HoverInfo? Current { get; private set; }
 
     public AbilityHoverWatcher(
         IAddonLifecycle addonLifecycle,
@@ -88,12 +92,12 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     /// <summary>
     /// Вызывать из UiBuilder.Draw ПОСЛЕ того, как оверлей с переводом (если он был) уже
-    /// нарисован за этот кадр. Сбрасывает CurrentEntry, чтобы на следующем кадре оверлей
-    /// показался снова, только если хотя бы один из отслеживаемых аддонов реально ещё виден
-    /// и сам вызовет OnAddonPostDraw заново - иначе (подсказка исчезла/навели на другое место)
-    /// оверлей естественным образом пропадёт, без ручного отслеживания состояния "видимо/нет".
+    /// нарисован за этот кадр. Сбрасывает Current, чтобы на следующем кадре оверлей показался
+    /// снова, только если хотя бы один из отслеживаемых аддонов реально ещё виден и сам вызовет
+    /// OnAddonPostDraw заново - иначе (подсказка исчезла/навели на другое место) оверлей
+    /// естественным образом пропадёт, без ручного отслеживания состояния "видимо/нет".
     /// </summary>
-    public void ResetForNextFrame() => CurrentEntry = null;
+    public void ResetForNextFrame() => Current = null;
 
     private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
     {
@@ -138,7 +142,12 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             }
 
             if (entry is not null && !string.IsNullOrEmpty(entry.Content))
-                CurrentEntry = entry;
+            {
+                // Только читаем координаты окна - X/Y/масштаб самой игры, ничего не меняем.
+                var width = addon->GetScaledWidth(true);
+                var height = addon->GetScaledHeight(true);
+                Current = new HoverInfo(entry, addon->X, addon->Y, width, height);
+            }
         }
         catch (Exception ex)
         {

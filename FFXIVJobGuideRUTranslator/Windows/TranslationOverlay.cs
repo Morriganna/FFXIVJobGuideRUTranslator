@@ -3,26 +3,30 @@ using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ManagedFontAtlas;
-using FFXIVJobGuideRUTranslator.Data;
+using FFXIVJobGuideRUTranslator.Hooks;
 
 namespace FFXIVJobGuideRUTranslator.Windows;
 
 /// <summary>
-/// Рисует перевод описания умения отдельным всплывающим окном ImGui рядом с курсором, поверх
+/// Рисует перевод описания умения отдельным всплывающим окном ImGui рядом с родным окном игры
+/// (по его экранным координатам, а не по курсору мыши - см. историю правок: у курсора перевод
+/// иногда перекрывал совсем другой контент, например список умений в "Actions & Traits"), поверх
 /// экрана - вместо того чтобы пытаться вписать его в родную подсказку игры (см. историю правок
 /// в AbilityHoverWatcher про то, почему это не сработало). Окно ImGui само разворачивается под
 /// любой объём текста, ничего в памяти игры не трогает и в принципе не может сломать её UI.
 ///
 /// По внешнему виду специально старается быть визуальным "двойником" родной подсказки: тот же
-/// шрифт (настоящий игровой Axis через Dalamud GameFontStyle, а не системный шрифт ImGui), тот же
-/// тёмный фон и тонкая рамка с почти прямыми углами, та же подсветка меток - "Duration:" зелёным,
-/// "Additional Effect:" золотым. Никакой собственной подписи/шапки не рисует - просто текст
-/// описания, как если бы это была ещё одна такая же плашка, только на русском.
+/// шрифт (настоящий игровой Axis через Dalamud GameFontStyle, тот же небольшой размер, что и в
+/// самой подсказке), тот же тёмный фон, тонкая рамка с почти прямыми углами и компактные отступы,
+/// та же подсветка меток - "Duration:" зелёным, "Additional Effect:" золотым. Никакой собственной
+/// подписи/шапки не рисует - просто текст описания, как если бы это была ещё одна такая же
+/// плашка, только на русском.
 /// </summary>
 public static class TranslationOverlay
 {
-    private const float WrapWidth = 360f;
+    private const float WrapWidth = 260f;
     private const float Margin = 8f;
+    private const float Gap = 6f; // расстояние между родным окном и нашим
 
     // Цвета подобраны на глаз под то, как их красит родная подсказка игры (см. скриншоты в истории
     // правок) - точных hex-кодов из клиента у меня нет, так что это приближение, не единственно
@@ -45,55 +49,56 @@ public static class TranslationOverlay
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
     // кадр незаметно глазу.
-    private static Vector2 lastSize = new(360, 90);
+    private static Vector2 lastSize = new(260, 80);
 
     private static IFontHandle? bodyFontHandle;
 
     /// <summary>
-    /// Настоящий игровой шрифт (Axis) вместо системного шрифта ImGui - визуально это даёт куда
-    /// больше сходства с родной подсказкой, чем любая подгонка цветов/рамок. Создаётся один раз
-    /// и держится на весь сеанс игры.
+    /// Настоящий игровой шрифт (Axis, 12pt - как основной текст описания в родной подсказке)
+    /// вместо системного шрифта ImGui. Создаётся один раз и держится на весь сеанс игры.
     /// </summary>
     private static IFontHandle GetBodyFont()
     {
         return bodyFontHandle ??= Plugin.PluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(
-            new GameFontStyle(GameFontFamilyAndSize.Axis14));
+            new GameFontStyle(GameFontFamilyAndSize.Axis12));
     }
 
-    /// <summary>Рисует оверлей, если entry не null. Вызывать из UiBuilder.Draw.</summary>
-    public static void Draw(TranslationEntry? entry)
+    /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
+    public static void Draw(AbilityHoverWatcher.HoverInfo? hover)
     {
-        if (entry is null || string.IsNullOrEmpty(entry.Content))
+        if (hover is null || string.IsNullOrEmpty(hover.Value.Entry.Content))
             return;
 
-        var mouse = ImGui.GetMousePos();
+        var info = hover.Value;
         var display = ImGui.GetIO().DisplaySize;
 
-        var pos = mouse + new Vector2(28, 28);
+        // По умолчанию - справа от родного окна, на той же высоте, что и его верх.
+        var pos = new Vector2(info.X + info.Width + Gap, info.Y);
 
-        // Не помещается по высоте ниже курсора (курсор у нижнего края экрана, как на хотбаре) -
-        // показываем окно НАД курсором вместо того, чтобы дать ему вылезти за пределы экрана.
-        if (pos.Y + lastSize.Y + Margin > display.Y)
-            pos.Y = mouse.Y - lastSize.Y - 12;
-
-        // Аналогично по ширине - не даём вылезти за правый край.
+        // Не помещается справа - показываем слева от родного окна вместо того, чтобы вылезти
+        // за правый край экрана.
         if (pos.X + lastSize.X + Margin > display.X)
-            pos.X = display.X - lastSize.X - Margin;
+            pos.X = info.X - lastSize.X - Gap;
 
-        pos.X = Math.Max(pos.X, Margin);
-        pos.Y = Math.Max(pos.Y, Margin);
+        // Всё ещё за пределами (окно само у самого края) - прижимаем к соответствующему краю экрана.
+        pos.X = Math.Clamp(pos.X, Margin, Math.Max(Margin, display.X - lastSize.X - Margin));
+
+        // Не помещается по высоте ниже верхней границы родного окна - сдвигаем вверх так, чтобы
+        // остаться в пределах экрана.
+        pos.Y = Math.Clamp(pos.Y, Margin, Math.Max(Margin, display.Y - lastSize.Y - Margin));
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
         // Тёмный, почти чёрный (с лёгким тёплым оттенком) фон и тонкая рамка практически без
-        // скругления углов - под стиль родной подсказки умения.
+        // скругления углов - под стиль родной подсказки умения. Отступы и интервалы компактные,
+        // под стать плотной вёрстке родной плашки (не просторный "воздух" по умолчанию у ImGui).
         ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
         ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(12, 9));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7, 5));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0f);
-        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(4, 5));
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(2, 2));
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
                                         | ImGuiWindowFlags.NoResize
@@ -107,7 +112,7 @@ public static class TranslationOverlay
 
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
-            foreach (var line in entry.Content.Split('\n'))
+            foreach (var line in info.Entry.Content!.Split('\n'))
                 DrawLine(line);
 
             lastSize = ImGui.GetWindowSize();
