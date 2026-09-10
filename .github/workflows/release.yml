@@ -1,6 +1,7 @@
 name: Release
 
-# Срабатывает только на пуш тега вида v0.1.1 - обычные пуши в main его не трогают.
+# Срабатывает только на пуш тега вида v0.1.1 - обычные пуши в main его не трогают, тестовые
+# сборки собирает отдельный workflow (test-build.yml) сам по себе на каждый пуш в main.
 # Перед тегом не забудьте поднять <Version> в FFXIVJobGuideRUTranslator.csproj,
 # иначе Dalamud не увидит новую версию как обновление.
 on:
@@ -58,32 +59,11 @@ jobs:
           generate_release_notes: true
           files: ${{ steps.pkg.outputs.dir }}/latest.zip
 
-      # Собираем repo.json (pluginmaster) для кастомного репозитория Dalamud:
+      # repo.json (pluginmaster) для кастомного репозитория Dalamud:
       # https://dalamud.dev/plugin-publishing/custom-repositories/
-      # Пишем во временную папку, а не в рабочую копию - дальше переключаемся на main,
-      # где и должен лежать repo.json (тег может указывать на другой коммит).
-      - name: Build repo.json
-        id: repo
-        shell: pwsh
-        run: |
-          $manifest = Get-Content "${{ steps.pkg.outputs.dir }}/FFXIVJobGuideRUTranslator.json" -Raw | ConvertFrom-Json
-          $zipUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
-
-          $manifest | Add-Member -NotePropertyName DownloadLinkInstall -NotePropertyValue $zipUrl -Force
-          $manifest | Add-Member -NotePropertyName DownloadLinkUpdate -NotePropertyValue $zipUrl -Force
-          $manifest | Add-Member -NotePropertyName DownloadLinkTesting -NotePropertyValue $zipUrl -Force
-          $manifest | Add-Member -NotePropertyName IsHide -NotePropertyValue $false -Force
-          $manifest | Add-Member -NotePropertyName IsTestingExclusive -NotePropertyValue $false -Force
-          $manifest | Add-Member -NotePropertyName LastUpdate -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()) -Force
-
-          # Dalamud ждёт именно JSON-массив "[{...}]", даже если плагин в репозитории один.
-          # @($manifest) заворачивает объект в массив из одного элемента; передаём его через
-          # -InputObject (не через конвейер!) - конвейер PowerShell разворачивает массивы
-          # обратно в отдельные объекты, и ConvertTo-Json тогда увидит голый объект, а не массив.
-          $outFile = Join-Path $env:RUNNER_TEMP "repo.json"
-          ConvertTo-Json -InputObject @($manifest) -Depth 10 | Set-Content -Path $outFile -Encoding utf8
-          "file=$outFile" >> $env:GITHUB_OUTPUT
-
+      # Живёт на main (тег может указывать на другой коммит), поэтому сначала переключаемся
+      # туда и уже там читаем/пишем файл - заодно можно сохранить поля тестового канала
+      # (Testing*), которые сюда пишет отдельный test-build.yml и которые этот релиз трогать не должен.
       - name: Publish repo.json to main
         shell: pwsh
         run: |
@@ -91,12 +71,40 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git fetch origin main
           git checkout main
-          Copy-Item -Path "${{ steps.repo.outputs.file }}" -Destination "repo.json" -Force
+
+          $manifest = Get-Content "${{ steps.pkg.outputs.dir }}/FFXIVJobGuideRUTranslator.json" -Raw | ConvertFrom-Json
+          $zipUrl = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/latest.zip"
+
+          $manifest | Add-Member -NotePropertyName DownloadLinkInstall -NotePropertyValue $zipUrl -Force
+          $manifest | Add-Member -NotePropertyName DownloadLinkUpdate -NotePropertyValue $zipUrl -Force
+          $manifest | Add-Member -NotePropertyName IsHide -NotePropertyValue $false -Force
+          $manifest | Add-Member -NotePropertyName IsTestingExclusive -NotePropertyValue $false -Force
+          $manifest | Add-Member -NotePropertyName LastUpdate -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()) -Force
+
+          # Если на main уже лежит repo.json с тестовым каналом (от test-build.yml) - переносим
+          # эти поля на новую запись как есть, стабильный релиз их не меняет и не затирает.
+          if (Test-Path "repo.json") {
+            $existing = (Get-Content "repo.json" -Raw | ConvertFrom-Json)[0]
+            foreach ($field in @("TestingAssemblyVersion", "DownloadLinkTesting")) {
+              if ($existing.PSObject.Properties.Name -contains $field) {
+                $manifest | Add-Member -NotePropertyName $field -NotePropertyValue $existing.$field -Force
+              }
+            }
+          }
+
+          # Dalamud ждёт именно JSON-массив "[{...}]", даже если плагин в репозитории один.
+          # @($manifest) заворачивает объект в массив из одного элемента; передаём его через
+          # -InputObject (не через конвейер!) - конвейер PowerShell разворачивает массивы
+          # обратно в отдельные объекты, и ConvertTo-Json тогда увидит голый объект, а не массив.
+          ConvertTo-Json -InputObject @($manifest) -Depth 10 | Set-Content -Path "repo.json" -Encoding utf8
+
           git add repo.json
           $status = git status --porcelain
           if ($status) {
-            git commit -m "chore: update repo.json for ${{ github.ref_name }}"
-            git push origin main
+            # [skip ci] - иначе этот коммит на main сам запустит test-build.yml (он триггерится
+            # на любой пуш в main) и мы соберём тестовую сборку без единой реальной правки кода.
+            git commit -m "chore: update repo.json for ${{ github.ref_name }} [skip ci]"
+            git push origin HEAD:main
           } else {
             Write-Host "repo.json не изменился, коммит не нужен."
           }

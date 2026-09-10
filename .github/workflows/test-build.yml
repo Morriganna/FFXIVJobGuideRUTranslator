@@ -1,0 +1,124 @@
+name: Test build
+
+# Автособирает тестовую версию на каждый пуш в main - без ручных тегов, версию и тег бот
+# генерирует сам (Major.Minor.Build из <Version> в .csproj + номер запуска workflow).
+# Публикуется отдельным каналом (Testing*) в repo.json, стабильный канал (обычные релизы vX.Y.Z
+# из release.yml) не трогает. Игрок должен сам включить приём тестовых версий для этого плагина
+# в Dalamud (после подключения репозитория - иконка настроек плагина -> "Get testing builds").
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: test-build
+  cancel-in-progress: true
+
+jobs:
+  test-build:
+    # Не запускаемся на коммитах, которые сам бот запушил в main (иначе, например, коммит
+    # release.yml с обновлённым repo.json тут же запустит ещё и тестовую сборку на пустом месте).
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+          cache: true
+          cache-dependency-path: FFXIVJobGuideRUTranslator/packages.lock.json
+
+      - name: Setup Dalamud
+        uses: Blooym/setup-dalamud@v1
+        with:
+          branch: release
+
+      # Testing-версия = первые 3 компонента <Version> из .csproj + номер запуска workflow
+      # (github.run_number - уникальный, всегда растущий для этого workflow). Так у Dalamud
+      # всегда есть повод посчитать сборку "новее" предыдущей тестовой, без ручного бампа версии.
+      - name: Compute testing version
+        id: version
+        shell: pwsh
+        run: |
+          $csprojPath = "FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj"
+          [xml]$xml = Get-Content $csprojPath -Raw
+          $baseVersion = ($xml.Project.PropertyGroup.Version | Select-Object -First 1)
+          $parts = $baseVersion.Split(".")
+          if ($parts.Count -lt 3) {
+            throw "Не смог разобрать <Version> ('$baseVersion') в $csprojPath - ожидались минимум 3 компонента (Major.Minor.Build)."
+          }
+
+          $testingVersion = "$($parts[0]).$($parts[1]).$($parts[2]).$env:GITHUB_RUN_NUMBER"
+          Write-Host "Testing version: $testingVersion"
+          "version=$testingVersion" >> $env:GITHUB_OUTPUT
+          "tag=testing_$testingVersion" >> $env:GITHUB_OUTPUT
+
+      - name: Restore
+        run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
+
+      - name: Build
+        run: >
+          dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj
+          -c Release --no-restore
+          -p:Version=${{ steps.version.outputs.version }}
+
+      - name: Locate DalamudPackager output
+        id: pkg
+        shell: pwsh
+        run: |
+          $dir = "FFXIVJobGuideRUTranslator/bin/Release/FFXIVJobGuideRUTranslator"
+          if (-not (Test-Path "$dir/latest.zip")) {
+            throw "latest.zip не найден в $dir - похоже, DalamudPackager не отработал (MakeZip)."
+          }
+          "dir=$dir" >> $env:GITHUB_OUTPUT
+
+      - name: Tag this build
+        run: |
+          git tag ${{ steps.version.outputs.tag }}
+          git push origin ${{ steps.version.outputs.tag }}
+
+      - name: Create GitHub Release (prerelease)
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Testing ${{ steps.version.outputs.version }}"
+          prerelease: true
+          generate_release_notes: true
+          files: ${{ steps.pkg.outputs.dir }}/latest.zip
+
+      # Обновляем только тестовый канал в repo.json - AssemblyVersion/DownloadLinkInstall
+      # (стабильный канал) не трогаем, им управляет release.yml по тегам vX.Y.Z.
+      - name: Update testing channel in repo.json
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "repo.json")) {
+            throw "repo.json ещё не существует на main - сначала нужен хотя бы один обычный релиз (тег vX.Y.Z, см. release.yml)."
+          }
+
+          $repo = Get-Content "repo.json" -Raw | ConvertFrom-Json
+          $entry = $repo[0]
+          $zipUrl = "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/latest.zip"
+
+          $entry | Add-Member -NotePropertyName TestingAssemblyVersion -NotePropertyValue "${{ steps.version.outputs.version }}" -Force
+          $entry | Add-Member -NotePropertyName DownloadLinkTesting -NotePropertyValue $zipUrl -Force
+
+          ConvertTo-Json -InputObject @($entry) -Depth 10 | Set-Content -Path "repo.json" -Encoding utf8
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add repo.json
+          $status = git status --porcelain
+          if ($status) {
+            git commit -m "chore: testing build ${{ steps.version.outputs.version }} [skip ci]"
+            git push origin HEAD:main
+          } else {
+            Write-Host "repo.json не изменился, коммит не нужен."
+          }

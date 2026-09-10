@@ -70,7 +70,9 @@ jobs:
           git add $env:TARGET_DIR
           $status = git status --porcelain
           if ($status) {
-            git commit -m "chore: sync translations from $env:SOURCE_OWNER/$env:SOURCE_REPO DB/*.json"
+            # [skip ci] - иначе этот коммит на main сам запустит test-build.yml (он триггерится
+            # на любой пуш в main).
+            git commit -m "chore: sync translations from $env:SOURCE_OWNER/$env:SOURCE_REPO DB/*.json [skip ci]"
             git push origin HEAD:main
           } else {
             Write-Host "Изменений нет - перевод уже актуален."
