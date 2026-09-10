@@ -1,26 +1,30 @@
 using System;
+using System.Collections.Generic;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ManagedFontAtlas;
+using FFXIVJobGuideRUTranslator.Data;
 using FFXIVJobGuideRUTranslator.Hooks;
 
 namespace FFXIVJobGuideRUTranslator.Windows;
 
 /// <summary>
 /// Рисует перевод описания умения отдельным всплывающим окном ImGui рядом с родным окном игры
-/// (по его экранным координатам, а не по курсору мыши - см. историю правок: у курсора перевод
-/// иногда перекрывал совсем другой контент, например список умений в "Actions & Traits"), поверх
-/// экрана - вместо того чтобы пытаться вписать его в родную подсказку игры (см. историю правок
-/// в AbilityHoverWatcher про то, почему это не сработало). Окно ImGui само разворачивается под
-/// любой объём текста, ничего в памяти игры не трогает и в принципе не может сломать её UI.
+/// (по его экранным координатам, а не по курсору мыши - см. историю правок), поверх экрана -
+/// вместо того чтобы пытаться вписать его в родную подсказку игры (см. AbilityHoverWatcher про
+/// то, почему это не сработало). Окно ImGui само разворачивается под любой объём текста, ничего
+/// в памяти игры не трогает и в принципе не может сломать её UI.
 ///
 /// По внешнему виду специально старается быть визуальным "двойником" родной подсказки: тот же
-/// шрифт (настоящий игровой Axis через Dalamud GameFontStyle, тот же небольшой размер, что и в
-/// самой подсказке), тот же тёмный фон, тонкая рамка с почти прямыми углами и компактные отступы,
-/// та же подсветка меток - "Duration:" зелёным, "Additional Effect:" золотым. Никакой собственной
-/// подписи/шапки не рисует - просто текст описания, как если бы это была ещё одна такая же
-/// плашка, только на русском.
+/// шрифт (настоящий игровой Axis через Dalamud GameFontStyle), тёмный фон, тонкая рамка с почти
+/// прямыми углами и компактные отступы, та же подсветка меток ("Duration:" зелёным, "Additional
+/// Effect:"/"Cure Potency:" золотым/голубым) И названий умений/статусов ПРЯМО ВНУТРИ предложения
+/// (они остаются на английском в переводе - оригинал их не переводит, как и мы) - так же, как это
+/// делает сама игра. Перенос строк реализован вручную, по словам (а не через PushTextWrapPos) -
+/// иначе разноцветные куски одного абзаца "залипают" на отступе первого куска при переносе
+/// (см. историю правок).
 /// </summary>
 public static class TranslationOverlay
 {
@@ -52,6 +56,14 @@ public static class TranslationOverlay
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
     private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
+    // Названия умений/статусов, упомянутые внутри предложения (остаются на английском) -
+    // тот же тёплый оттенок, что и "Additional Effect:".
+    private static readonly Vector4 NameHighlightColor = new(0.90f, 0.62f, 0.32f, 1f);
+
+    // Подряд идущие слова с большой буквы (латиница) - кандидаты на "это название умения/статуса".
+    private static readonly Regex CapitalizedRunRegex =
+        new(@"\b[A-Z][a-zA-Z']*(?:\s+[A-Z][a-zA-Z']*){0,3}\b", RegexOptions.Compiled);
+    private static readonly Regex WhitespaceSplitRegex = new(@"(\s+)", RegexOptions.Compiled);
 
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
@@ -59,6 +71,8 @@ public static class TranslationOverlay
     private static Vector2 lastSize = new(260, 80);
 
     private static IFontHandle? bodyFontHandle;
+
+    private readonly record struct Token(string Text, Vector4 Color);
 
     /// <summary>
     /// Настоящий игровой шрифт (Axis, 12pt - как основной текст описания в родной подсказке)
@@ -71,7 +85,7 @@ public static class TranslationOverlay
     }
 
     /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
-    public static void Draw(AbilityHoverWatcher.HoverInfo? hover)
+    public static void Draw(AbilityHoverWatcher.HoverInfo? hover, TranslationRepository repository)
     {
         if (hover is null || string.IsNullOrEmpty(hover.Value.Entry.Content))
             return;
@@ -120,7 +134,7 @@ public static class TranslationOverlay
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
             foreach (var line in info.Entry.Content!.Split('\n'))
-                DrawLine(line);
+                DrawLine(line, repository);
 
             lastSize = ImGui.GetWindowSize();
         }
@@ -131,42 +145,121 @@ public static class TranslationOverlay
     }
 
     /// <summary>
-    /// Красит известную метку в начале строки ("Продолжительность:", "Дополнительный эффект:" и
-    /// т.п.) под цвет оригинала. Короткое значение остаётся на той же строке, что и метка (как в
-    /// игре); длинное - переносится на отдельную строку с переносом от левого края, а не от места
-    /// окончания метки - иначе ImGui "залипает" на этом отступе для всех последующих строк абзаца.
+    /// Рисует одну строку описания: известную метку в начале ("Продолжительность:" и т.п.) - цветом
+    /// оригинала, названия умений/статусов внутри предложения (остаются на английском) - тем же
+    /// тёплым акцентом, что и в игре, остальное - обычным цветом. Перенос строк - вручную, по
+    /// словам (см. класс) - иначе ImGui "залипает" на отступе первого разноцветного куска абзаца.
     /// </summary>
-    private static void DrawLine(string line)
+    private static void DrawLine(string line, TranslationRepository repository)
     {
-        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + WrapWidth);
+        var body = line;
+        Token? label = null;
 
         foreach (var (prefix, color) in HighlightedPrefixes)
         {
             if (!line.StartsWith(prefix, StringComparison.Ordinal))
                 continue;
-
             var afterPrefix = line.Length > prefix.Length ? line[prefix.Length] : '\0';
             if (afterPrefix != ':')
                 continue;
 
-            var rest = line[(prefix.Length + 1)..].TrimStart();
-            var labelText = prefix + ":";
-            ImGui.TextColored(color, labelText);
-
-            if (rest.Length > 0)
-            {
-                var availableForRest = WrapWidth - ImGui.CalcTextSize(labelText).X - 6;
-                if (ImGui.CalcTextSize(rest).X <= availableForRest)
-                    ImGui.SameLine(0, 6);
-
-                ImGui.TextColored(BodyColor, rest);
-            }
-
-            ImGui.PopTextWrapPos();
-            return;
+            label = new Token(prefix + ":", color);
+            body = line[(prefix.Length + 1)..].TrimStart();
+            break;
         }
 
-        ImGui.TextColored(BodyColor, line);
-        ImGui.PopTextWrapPos();
+        var tokens = Tokenize(body, repository);
+
+        var cursorX = 0f;
+        var atLineStart = true;
+
+        void Place(Token token)
+        {
+            // Пробел, оказавшийся в начале строки (после переноса) - пропускаем, иначе перенесённая
+            // строка начинается с заметного отступа.
+            if (atLineStart && string.IsNullOrWhiteSpace(token.Text))
+                return;
+
+            var width = ImGui.CalcTextSize(token.Text).X;
+            if (!atLineStart && cursorX + width > WrapWidth)
+            {
+                ImGui.NewLine();
+                cursorX = 0f;
+                atLineStart = true;
+
+                if (string.IsNullOrWhiteSpace(token.Text))
+                    return; // тот же пробел, теперь уже в начале новой строки - тоже не рисуем
+            }
+
+            if (!atLineStart)
+                ImGui.SameLine(0, 0);
+
+            ImGui.TextColored(token.Color, token.Text);
+            cursorX += width;
+            atLineStart = false;
+        }
+
+        if (label is { } l)
+        {
+            Place(l);
+            Place(new Token(" ", BodyColor));
+        }
+
+        foreach (var token in tokens)
+            Place(token);
+
+        if (atLineStart)
+            ImGui.NewLine(); // пустая строка (например, разделительный перенос) - тоже должна дать перевод строки
+    }
+
+    /// <summary>Разбивает текст на токены (слова/пробелы), подсвечивая упомянутые в нём известные названия умений/статусов.</summary>
+    private static List<Token> Tokenize(string text, TranslationRepository repository)
+    {
+        var tokens = new List<Token>();
+        var pos = 0;
+
+        foreach (Match match in CapitalizedRunRegex.Matches(text))
+        {
+            if (match.Index > pos)
+                AppendPlainWords(text[pos..match.Index], tokens);
+
+            var words = match.Value.Split(' ');
+            var matchedWordCount = 0;
+            for (var take = words.Length; take >= 1; take--)
+            {
+                var candidate = string.Join(' ', words, 0, take);
+                if (repository.TryGetByEnglishName(candidate, out _))
+                {
+                    matchedWordCount = take;
+                    break;
+                }
+            }
+
+            if (matchedWordCount > 0)
+            {
+                var matchedText = string.Join(' ', words, 0, matchedWordCount);
+                tokens.Add(new Token(matchedText, NameHighlightColor));
+                pos = match.Index + matchedText.Length;
+            }
+            else
+            {
+                AppendPlainWords(match.Value, tokens);
+                pos = match.Index + match.Length;
+            }
+        }
+
+        if (pos < text.Length)
+            AppendPlainWords(text[pos..], tokens);
+
+        return tokens;
+    }
+
+    private static void AppendPlainWords(string text, List<Token> tokens)
+    {
+        foreach (var part in WhitespaceSplitRegex.Split(text))
+        {
+            if (part.Length > 0)
+                tokens.Add(new Token(part, BodyColor));
+        }
     }
 }
