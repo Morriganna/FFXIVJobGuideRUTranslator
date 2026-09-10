@@ -85,7 +85,7 @@ public sealed class Plugin : IDalamudPlugin
         // Оверлей с переводом рисуется отдельно поверх экрана - см. AbilityHoverWatcher/TranslationOverlay.
         // CurrentEntry живёт ровно один кадр: если ни один отслеживаемый аддон не "подсветил" его
         // заново на этом кадре (подсказка игры уже не показана), ResetForNextFrame его погасит.
-        TranslationOverlay.Draw(hoverWatcher?.Current, Repository);
+        TranslationOverlay.Draw(hoverWatcher?.Current);
         hoverWatcher?.ResetForNextFrame();
     }
 

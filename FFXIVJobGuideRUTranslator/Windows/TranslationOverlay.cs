@@ -5,7 +5,6 @@ using System.Text.RegularExpressions;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ManagedFontAtlas;
-using FFXIVJobGuideRUTranslator.Data;
 using FFXIVJobGuideRUTranslator.Hooks;
 
 namespace FFXIVJobGuideRUTranslator.Windows;
@@ -54,6 +53,8 @@ public static class TranslationOverlay
         ("Сила урона", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
         ("Сила в комбо", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
         ("Сила комбо", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
+        // "Gauge Cost:"/"Oath Gauge Cost:" и т.п. - та же категория "числового ресурса", что и Potency.
+        ("Стоимость", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
     };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
@@ -66,6 +67,13 @@ public static class TranslationOverlay
     private static readonly Regex CapitalizedRunRegex =
         new(@"\b[A-Z][a-zA-Z']*(?:\s+[A-Z][a-zA-Z']*){0,3}\b", RegexOptions.Compiled);
     private static readonly Regex WhitespaceSplitRegex = new(@"(\s+)", RegexOptions.Compiled);
+
+    // Короткие служебные сокращения характеристик - их игра не подсвечивает как ссылку на
+    // умение/статус, в отличие от почти любого другого захваченного куска с большой буквы.
+    private static readonly HashSet<string> ExcludedAbbreviations = new(StringComparer.Ordinal)
+    {
+        "HP", "MP", "TP", "GP", "CP",
+    };
 
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
@@ -88,7 +96,7 @@ public static class TranslationOverlay
     }
 
     /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
-    public static void Draw(AbilityHoverWatcher.HoverInfo? hover, TranslationRepository repository)
+    public static void Draw(AbilityHoverWatcher.HoverInfo? hover)
     {
         if (hover is null || string.IsNullOrEmpty(hover.Value.Entry.Content))
             return;
@@ -146,7 +154,7 @@ public static class TranslationOverlay
                 DrawNineSlice(bg, ImGui.GetWindowPos(), lastSize);
 
             foreach (var line in info.Entry.Content!.Split('\n'))
-                DrawLine(line, repository);
+                DrawLine(line);
 
             lastSize = ImGui.GetWindowSize();
         }
@@ -203,7 +211,7 @@ public static class TranslationOverlay
     /// тёплым акцентом, что и в игре, остальное - обычным цветом. Перенос строк - вручную, по
     /// словам (см. класс) - иначе ImGui "залипает" на отступе первого разноцветного куска абзаца.
     /// </summary>
-    private static void DrawLine(string line, TranslationRepository repository)
+    private static void DrawLine(string line)
     {
         var body = line;
         Token? label = null;
@@ -221,7 +229,7 @@ public static class TranslationOverlay
             break;
         }
 
-        var tokens = Tokenize(body, repository);
+        var tokens = Tokenize(body);
 
         var cursorX = 0f;
         var atLineStart = true;
@@ -269,8 +277,17 @@ public static class TranslationOverlay
             ImGui.NewLine(); // строка не дала ни одного видимого токена (пустая строка в оригинале) - просто переходим дальше
     }
 
-    /// <summary>Разбивает текст на токены (слова/пробелы), подсвечивая упомянутые в нём известные названия умений/статусов.</summary>
-    private static List<Token> Tokenize(string text, TranslationRepository repository)
+    /// <summary>
+    /// Разбивает текст на токены (слова/пробелы), подсвечивая упомянутые в нём названия умений/
+    /// статусов. Изначально подсвечивались только точные совпадения с базой переведённых умений,
+    /// но составные статус-эффекты (умение + суффикс вроде "Ready"/"Attunement", например
+    /// "Confiteor Ready" или "Knight's Benediction") в базу не попадают - там только умения, не
+    /// статусы. Поскольку почти любой захваченный кусок текста с большой буквы в описании умения
+    /// и так является ссылкой на другое умение/статус (случайных капитализированных английских
+    /// слов в русском переводе не бывает), теперь подсвечиваются ВСЕ такие куски одинаково,
+    /// кроме короткой служебки вроде "HP"/"MP" (её игра просто не выделяет).
+    /// </summary>
+    private static List<Token> Tokenize(string text)
     {
         var tokens = new List<Token>();
         var pos = 0;
@@ -280,32 +297,12 @@ public static class TranslationOverlay
             if (match.Index > pos)
                 AppendPlainWords(text[pos..match.Index], tokens);
 
-            var words = match.Value.Split(' ');
-            var matchedWordCount = 0;
-            for (var take = words.Length; take >= 1; take--)
-            {
-                var candidate = string.Join(' ', words, 0, take);
-                if (repository.TryGetByEnglishName(candidate, out _))
-                {
-                    matchedWordCount = take;
-                    break;
-                }
-            }
-
-            if (matchedWordCount > 0)
-            {
-                // Подсвечиваем ВЕСЬ захваченный кусок целиком, а не только совпавший префикс -
-                // например, "Confiteor Ready" (составной статус-эффект: умение + суффикс вроде
-                // "Ready"/"Attunement") в базе есть только как "Confiteor", но по смыслу это одна
-                // целая ссылка на эффект, и в оригинале она подсвечена целиком, а не наполовину.
-                tokens.Add(new Token(match.Value, NameHighlightColor));
-                pos = match.Index + match.Length;
-            }
-            else
-            {
+            if (ExcludedAbbreviations.Contains(match.Value))
                 AppendPlainWords(match.Value, tokens);
-                pos = match.Index + match.Length;
-            }
+            else
+                tokens.Add(new Token(match.Value, NameHighlightColor));
+
+            pos = match.Index + match.Length;
         }
 
         if (pos < text.Length)
