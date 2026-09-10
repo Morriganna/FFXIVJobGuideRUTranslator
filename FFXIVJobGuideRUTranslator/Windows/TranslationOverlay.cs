@@ -12,9 +12,10 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// любой объём текста, ничего в памяти игры не трогает и в принципе не может сломать её UI.
 ///
 /// Внешний вид подогнан под стилистику родной подсказки умения: тёмный полупрозрачный фон,
-/// тонкая рамка, и подсветка тех же меток, что игра красит цветом в оригинале - "Duration:"
-/// (зелёный) и "Additional Effect:" (золотой). Сама вёрстка (иконка/Range/Radius/Cast/Recast и
-/// т.п.) не воспроизводится - это по-прежнему отдельное окно, а не копия родного.
+/// тонкая рамка, золотая разделительная линия под заголовком (частый приём в интерфейсе FFXIV),
+/// и подсветка тех же меток, что игра красит цветом в оригинале - "Duration:" (зелёный) и
+/// "Additional Effect:" (золотой). Сама вёрстка (иконка/Range/Radius/Cast/Recast и т.п.) не
+/// воспроизводится - это по-прежнему отдельное окно, а не копия родного.
 /// </summary>
 public static class TranslationOverlay
 {
@@ -37,7 +38,7 @@ public static class TranslationOverlay
     };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
-    private static readonly Vector4 LabelColor = new(0.72f, 0.66f, 0.52f, 0.85f); // приглушённое золото под собственную подпись плагина
+    private static readonly Vector4 GoldAccent = new(0.75f, 0.62f, 0.32f, 0.9f); // общий золотой акцент интерфейса FFXIV
 
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
@@ -71,11 +72,13 @@ public static class TranslationOverlay
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
         // Тёмный полупрозрачный фон и тонкая рамка - под стиль родной подсказки умения.
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.075f, 0.075f, 0.09f, 0.93f));
-        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.45f, 0.47f, 0.55f, 0.55f));
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(10, 8));
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.055f, 0.055f, 0.065f, 0.95f));
+        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.42f, 0.44f, 0.50f, 0.6f));
+        ImGui.PushStyleColor(ImGuiCol.Separator, GoldAccent);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(11, 9));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 3f);
+        ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(4, 5));
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
                                         | ImGuiWindowFlags.NoResize
@@ -88,26 +91,34 @@ public static class TranslationOverlay
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
             ImGui.SetWindowFontScale(0.82f);
-            ImGui.TextColored(LabelColor, "Перевод · ff14jobguide.ru");
+            ImGui.TextColored(GoldAccent, "ПЕРЕВОД · FF14JOBGUIDE.RU");
             ImGui.SetWindowFontScale(1f);
+
+            // Золотая разделительная линия под заголовком - как в самой игре под названиями разделов.
+            ImGui.Separator();
             ImGui.Spacing();
 
-            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + WrapWidth);
             foreach (var line in entry.Content.Split('\n'))
                 DrawLine(line);
-            ImGui.PopTextWrapPos();
 
             lastSize = ImGui.GetWindowSize();
         }
 
         ImGui.End();
-        ImGui.PopStyleVar(3);
-        ImGui.PopStyleColor(2);
+        ImGui.PopStyleVar(4);
+        ImGui.PopStyleColor(3);
     }
 
-    /// <summary>Красит известную метку в начале строки ("Продолжительность:", "Дополнительный эффект:" и т.п.) под цвет оригинала, остальное - обычным цветом текста.</summary>
+    /// <summary>
+    /// Красит известную метку в начале строки ("Продолжительность:", "Дополнительный эффект:" и
+    /// т.п.) под цвет оригинала. Короткое значение остаётся на той же строке, что и метка (как в
+    /// игре); длинное - переносится на отдельную строку с переносом от левого края, а не от места
+    /// окончания метки - иначе ImGui "залипает" на этом отступе для всех последующих строк абзаца.
+    /// </summary>
     private static void DrawLine(string line)
     {
+        ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + WrapWidth);
+
         foreach (var (prefix, color) in HighlightedPrefixes)
         {
             if (!line.StartsWith(prefix, StringComparison.Ordinal))
@@ -118,16 +129,23 @@ public static class TranslationOverlay
                 continue;
 
             var rest = line[(prefix.Length + 1)..].TrimStart();
-            ImGui.TextColored(color, prefix + ":");
+            var labelText = prefix + ":";
+            ImGui.TextColored(color, labelText);
+
             if (rest.Length > 0)
             {
-                ImGui.SameLine(0, 4);
+                var availableForRest = WrapWidth - ImGui.CalcTextSize(labelText).X - 6;
+                if (ImGui.CalcTextSize(rest).X <= availableForRest)
+                    ImGui.SameLine(0, 6);
+
                 ImGui.TextColored(BodyColor, rest);
             }
 
+            ImGui.PopTextWrapPos();
             return;
         }
 
         ImGui.TextColored(BodyColor, line);
+        ImGui.PopTextWrapPos();
     }
 }
