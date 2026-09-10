@@ -185,9 +185,15 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     private static bool TryGetBackgroundNineGrid(AtkUnitBase* addon, out NineGridInfo info, IPluginLog log)
     {
         info = default;
-        AtkNineGridNode* best = null;
+
+        // Кандидат в фон может оказаться и NineGrid-нодой (с честным 9-слайсом), и обычной
+        // Image-нодой (одна текстура без разбиения на края - растягиваем целиком). Первая
+        // проверка (только NineGrid) нашла крошечную декоративную полоску 32x4 - явно не фон -
+        // поэтому теперь смотрим на обе разновидности и берём наибольшую по площади из ЛЮБОЙ.
+        AtkResNode* best = null;
         var bestArea = 0f;
         var nineGridCount = 0;
+        var imageCount = 0;
 
         Scan((AtkResNode*)addon->RootNode);
         for (var i = 0; i < addon->UldManager.NodeListCount; i++)
@@ -197,14 +203,16 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         {
             while (node is not null)
             {
-                if (node->Type == NodeType.NineGrid)
+                if (node->Type == NodeType.NineGrid || node->Type == NodeType.Image)
                 {
-                    nineGridCount++;
+                    if (node->Type == NodeType.NineGrid) nineGridCount++;
+                    else imageCount++;
+
                     var area = (float)node->Width * node->Height;
                     if (area > bestArea)
                     {
                         bestArea = area;
-                        best = (AtkNineGridNode*)node;
+                        best = node;
                     }
                 }
                 else if (node->Type >= NodeType.Component)
@@ -225,13 +233,22 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         }
 
         if (best is null)
-            return Fail($"NineGrid-нод в окне не найдено вообще (проверено {nineGridCount})");
+            return Fail($"ни одной NineGrid/Image-ноды в окне не найдено (NineGrid={nineGridCount}, Image={imageCount})");
 
-        var partsList = best->PartsList;
-        if (partsList is null || best->PartId >= partsList->PartCount)
-            return Fail($"у выбранной NineGrid-ноды (area={bestArea}) нет валидного PartsList/PartId");
+        // AtkImageNode и AtkNineGridNode держат PartsList/PartId на одних и тех же полях (хоть у
+        // AtkNineGridNode PartId - uint, а у AtkImageNode - ushort), поэтому оба разбираем через
+        // общий указатель на AtkNineGridNode - для Image-ноды поля TopOffset и т.п. дальше по
+        // структуре, но мы их просто не используем (offsets остаются 0 => без 9-слайса, просто
+        // растягиваем целиком).
+        var isNineGrid = best->Type == NodeType.NineGrid;
+        var asNineGrid = (AtkNineGridNode*)best;
+        var partsList = asNineGrid->PartsList;
+        var partId = isNineGrid ? asNineGrid->PartId : ((AtkImageNode*)best)->PartId;
 
-        var part = &partsList->Parts[best->PartId];
+        if (partsList is null || partId >= partsList->PartCount)
+            return Fail($"у выбранной ноды ({best->Type}, area={bestArea}) нет валидного PartsList/PartId");
+
+        var part = &partsList->Parts[partId];
         var asset = part->UldAsset;
         if (asset is null)
             return Fail("у части (Part) нет UldAsset");
@@ -249,11 +266,15 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             texture->ActualWidth,
             texture->ActualHeight,
             part->U, part->V, part->Width, part->Height,
-            best->TopOffset, best->BottomOffset, best->LeftOffset, best->RightOffset);
+            isNineGrid ? asNineGrid->TopOffset : 0,
+            isNineGrid ? asNineGrid->BottomOffset : 0,
+            isNineGrid ? asNineGrid->LeftOffset : 0,
+            isNineGrid ? asNineGrid->RightOffset : 0);
 
-        var successReason = $"OK: texture {texture->ActualWidth}x{texture->ActualHeight}, " +
+        var successReason = $"OK: nodeType={best->Type} area={bestArea} texture {texture->ActualWidth}x{texture->ActualHeight}, " +
                              $"sprite U={part->U} V={part->V} W={part->Width} H={part->Height}, " +
-                             $"offsets T={best->TopOffset} B={best->BottomOffset} L={best->LeftOffset} R={best->RightOffset}";
+                             $"offsets T={(isNineGrid ? asNineGrid->TopOffset : 0)} B={(isNineGrid ? asNineGrid->BottomOffset : 0)} " +
+                             $"L={(isNineGrid ? asNineGrid->LeftOffset : 0)} R={(isNineGrid ? asNineGrid->RightOffset : 0)}";
         if (successReason != lastLoggedReason)
         {
             lastLoggedReason = successReason;
