@@ -157,7 +157,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 // Только читаем координаты окна - X/Y/масштаб самой игры, ничего не меняем.
                 var width = addon->GetScaledWidth(true);
                 var height = addon->GetScaledHeight(true);
-                var background = TryGetBackgroundNineGrid(addon, out var nineGrid) ? nineGrid : (NineGridInfo?)null;
+                var background = TryGetBackgroundNineGrid(addon, out var nineGrid, log) ? nineGrid : (NineGridInfo?)null;
                 Current = new HoverInfo(entry, addon->X, addon->Y, width, height, background);
             }
         }
@@ -177,11 +177,17 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     /// растяжении выглядят перекошенными, вероятно, нужно поменять интерпретацию этих четырёх
     /// значений в TranslationOverlay.DrawNineSlice.
     /// </summary>
-    private static bool TryGetBackgroundNineGrid(AtkUnitBase* addon, out NineGridInfo info)
+    // Логируем причину неудачи только при СМЕНЕ причины (не каждый кадр - иначе log-файл
+    // раздувается за секунды, пока курсор наведён), чтобы разово увидеть в /xllog, на каком
+    // именно шаге ломается извлечение текстуры, не гадая вслепую по скриншотам.
+    private static string? lastLoggedReason;
+
+    private static bool TryGetBackgroundNineGrid(AtkUnitBase* addon, out NineGridInfo info, IPluginLog log)
     {
         info = default;
         AtkNineGridNode* best = null;
         var bestArea = 0f;
+        var nineGridCount = 0;
 
         Scan((AtkResNode*)addon->RootNode);
         for (var i = 0; i < addon->UldManager.NodeListCount; i++)
@@ -193,6 +199,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             {
                 if (node->Type == NodeType.NineGrid)
                 {
+                    nineGridCount++;
                     var area = (float)node->Width * node->Height;
                     if (area > bestArea)
                     {
@@ -218,20 +225,24 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         }
 
         if (best is null)
-            return false;
+            return Fail($"NineGrid-нод в окне не найдено вообще (проверено {nineGridCount})");
 
         var partsList = best->PartsList;
         if (partsList is null || best->PartId >= partsList->PartCount)
-            return false;
+            return Fail($"у выбранной NineGrid-ноды (area={bestArea}) нет валидного PartsList/PartId");
 
         var part = &partsList->Parts[best->PartId];
         var asset = part->UldAsset;
-        if (asset is null || !asset->AtkTexture.IsTextureReady())
-            return false;
+        if (asset is null)
+            return Fail("у части (Part) нет UldAsset");
+        if (!asset->AtkTexture.IsTextureReady())
+            return Fail("текстура найдена, но IsTextureReady() == false");
 
         var texture = asset->AtkTexture.GetKernelTexture();
-        if (texture is null || texture->D3D11ShaderResourceView is null)
-            return false;
+        if (texture is null)
+            return Fail("GetKernelTexture() вернул null");
+        if (texture->D3D11ShaderResourceView is null)
+            return Fail("у текстуры нет D3D11ShaderResourceView");
 
         info = new NineGridInfo(
             (nint)texture->D3D11ShaderResourceView,
@@ -239,7 +250,28 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             texture->ActualHeight,
             part->U, part->V, part->Width, part->Height,
             best->TopOffset, best->BottomOffset, best->LeftOffset, best->RightOffset);
+
+        var successReason = $"OK: texture {texture->ActualWidth}x{texture->ActualHeight}, " +
+                             $"sprite U={part->U} V={part->V} W={part->Width} H={part->Height}, " +
+                             $"offsets T={best->TopOffset} B={best->BottomOffset} L={best->LeftOffset} R={best->RightOffset}";
+        if (successReason != lastLoggedReason)
+        {
+            lastLoggedReason = successReason;
+            log.Information($"[JobGuideRU] Фон найден: {successReason}");
+        }
+
         return true;
+
+        bool Fail(string reason)
+        {
+            if (reason != lastLoggedReason)
+            {
+                lastLoggedReason = reason;
+                log.Information($"[JobGuideRU] Фон НЕ найден: {reason}");
+            }
+
+            return false;
+        }
     }
 
     private static IEnumerable<string?> EnumerateTextNodes(AtkUnitBase* addon)
