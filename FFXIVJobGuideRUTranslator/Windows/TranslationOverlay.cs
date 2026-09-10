@@ -42,22 +42,29 @@ public static class TranslationOverlay
     // остаётся единственным "фоновым" цветом, акцент - для всего структурно важного разом.
     private static readonly Vector4 AccentColor = new(0.62f, 0.85f, 0.55f, 1f); // зелёный, как "Duration:" в оригинале
 
-    private static readonly (string Prefix, Vector4 Color)[] HighlightedPrefixes =
+    // Строки, которые в оригинале целиком зелёные (не только первое слово-метка) - Duration,
+    // Additional Effect, комбо-статы, стоимость шкалы и т.п. Название умения/статуса внутри такой
+    // строки (если есть) всё равно вырезается и красится отдельным, оранжевым цветом - см. Tokenize.
+    private static readonly string[] FullyAccentedLinePrefixes =
     {
-        ("Продолжительность", AccentColor),
-        ("Длительность", AccentColor),
-        ("Дополнительные эффекты", AccentColor),
-        ("Дополнительный эффект", AccentColor),
-        ("Комбо умение", AccentColor),
-        ("Комбо-действие", AccentColor),
-        ("Комбо бонус", AccentColor),
-        ("Бонус комбо", AccentColor),
-        // Комбо-статы (Combo Potency/Combo Action/Combo Bonus) в оригинале зелёные вместе с
-        // остальным комбо-блоком - в отличие от обычного "Potency:"/"Cure Potency:" вне контекста
-        // комбо, который остаётся обычным белым текстом без акцента.
-        ("Сила комбо", AccentColor),
-        ("Сила в комбо", AccentColor),
+        "Продолжительность",
+        "Длительность",
+        "Дополнительные эффекты",
+        "Дополнительный эффект",
+        "Комбо умение",
+        "Комбо-действие",
+        "Комбо бонус",
+        "Бонус комбо",
+        "Сила комбо",
+        "Сила в комбо",
+        "Стоимость", // "Gauge Cost:"/"Oath Gauge Cost:" и т.п.
     };
+
+    // Составные метки вида "Эффект <Название статуса>:" (например "Эффект Knight's Resolve:",
+    // "Эффект Knight's Benediction:") - конкретное название заранее не известно (это же не
+    // отдельное умение, а статус, произведённый от него), но сама метка целиком зелёная в
+    // оригинале, как и остальные строки из FullyAccentedLinePrefixes.
+    private static readonly Regex EffectOfNamedStatusRegex = new(@"^Эффект\s", RegexOptions.Compiled);
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
     private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
@@ -208,30 +215,29 @@ public static class TranslationOverlay
     }
 
     /// <summary>
-    /// Рисует одну строку описания: известную метку в начале ("Продолжительность:" и т.п.) - цветом
-    /// оригинала, названия умений/статусов внутри предложения (остаются на английском) - тем же
-    /// тёплым акцентом, что и в игре, остальное - обычным цветом. Перенос строк - вручную, по
-    /// словам (см. класс) - иначе ImGui "залипает" на отступе первого разноцветного куска абзаца.
+    /// Рисует одну строку описания. Если строка целиком относится к "структурной" категории
+    /// (Duration/Additional Effect/Комбо/Стоимость шкалы/"Эффект Х:") - она вся зелёная по
+    /// умолчанию, иначе вся белая (обычный текст описания). В любом случае конкретные названия
+    /// умений/статусов внутри строки (остаются на английском) вырезаются и красятся отдельным,
+    /// оранжевым цветом поверх - см. Tokenize. Перенос строк - вручную, по словам (см. класс) -
+    /// иначе ImGui "залипает" на отступе первого разноцветного куска абзаца.
     /// </summary>
     private static void DrawLine(string line)
     {
-        var body = line;
-        Token? label = null;
-
-        foreach (var (prefix, color) in HighlightedPrefixes)
+        var isFullyAccented = EffectOfNamedStatusRegex.IsMatch(line);
+        if (!isFullyAccented)
         {
-            if (!line.StartsWith(prefix, StringComparison.Ordinal))
-                continue;
-            var afterPrefix = line.Length > prefix.Length ? line[prefix.Length] : '\0';
-            if (afterPrefix != ':')
-                continue;
-
-            label = new Token(prefix + ":", color);
-            body = line[(prefix.Length + 1)..].TrimStart();
-            break;
+            foreach (var prefix in FullyAccentedLinePrefixes)
+            {
+                if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                    continue;
+                isFullyAccented = true;
+                break;
+            }
         }
 
-        var tokens = Tokenize(body);
+        var defaultColor = isFullyAccented ? AccentColor : BodyColor;
+        var tokens = Tokenize(line, defaultColor);
 
         var cursorX = 0f;
         var atLineStart = true;
@@ -266,12 +272,6 @@ public static class TranslationOverlay
             atLineStart = false;
         }
 
-        if (label is { } l)
-        {
-            Place(l);
-            Place(new Token(" ", BodyColor));
-        }
-
         foreach (var token in tokens)
             Place(token);
 
@@ -289,7 +289,7 @@ public static class TranslationOverlay
     /// слов в русском переводе не бывает), теперь подсвечиваются ВСЕ такие куски одинаково,
     /// кроме короткой служебки вроде "HP"/"MP" (её игра просто не выделяет).
     /// </summary>
-    private static List<Token> Tokenize(string text)
+    private static List<Token> Tokenize(string text, Vector4 defaultColor)
     {
         var tokens = new List<Token>();
         var pos = 0;
@@ -297,10 +297,10 @@ public static class TranslationOverlay
         foreach (Match match in CapitalizedRunRegex.Matches(text))
         {
             if (match.Index > pos)
-                AppendPlainWords(text[pos..match.Index], tokens);
+                AppendPlainWords(text[pos..match.Index], tokens, defaultColor);
 
             if (ExcludedAbbreviations.Contains(match.Value))
-                AppendPlainWords(match.Value, tokens);
+                AppendPlainWords(match.Value, tokens, defaultColor);
             else
                 tokens.Add(new Token(match.Value, NameHighlightColor));
 
@@ -308,17 +308,17 @@ public static class TranslationOverlay
         }
 
         if (pos < text.Length)
-            AppendPlainWords(text[pos..], tokens);
+            AppendPlainWords(text[pos..], tokens, defaultColor);
 
         return tokens;
     }
 
-    private static void AppendPlainWords(string text, List<Token> tokens)
+    private static void AppendPlainWords(string text, List<Token> tokens, Vector4 color)
     {
         foreach (var part in WhitespaceSplitRegex.Split(text))
         {
             if (part.Length > 0)
-                tokens.Add(new Token(part, BodyColor));
+                tokens.Add(new Token(part, color));
         }
     }
 }
