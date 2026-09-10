@@ -181,9 +181,13 @@ public static class TranslationOverlay
                 return;
 
             var width = ImGui.CalcTextSize(token.Text).X;
-            if (!atLineStart && cursorX + width > WrapWidth)
+            // Перенос строки: НЕ вызываем ImGui.NewLine() явно - обычный TextColored сам переводит
+            // курсор на новую строку, если следующий вызов не предварён SameLine(). Явный NewLine()
+            // здесь добавлял бы ВТОРОЙ перевод строки поверх автоматического - отсюда были двойные
+            // интервалы между строками. Просто не зовём SameLine() для этого токена.
+            var wraps = !atLineStart && cursorX + width > WrapWidth;
+            if (wraps)
             {
-                ImGui.NewLine();
                 cursorX = 0f;
                 atLineStart = true;
 
@@ -209,7 +213,7 @@ public static class TranslationOverlay
             Place(token);
 
         if (atLineStart)
-            ImGui.NewLine(); // пустая строка (например, разделительный перенос) - тоже должна дать перевод строки
+            ImGui.NewLine(); // строка не дала ни одного видимого токена (пустая строка в оригинале) - просто переходим дальше
     }
 
     /// <summary>Разбивает текст на токены (слова/пробелы), подсвечивая упомянутые в нём известные названия умений/статусов.</summary>
