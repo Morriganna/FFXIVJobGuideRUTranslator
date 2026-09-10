@@ -396,10 +396,11 @@ public static class TranslationOverlay
             if (match.Index > pos)
                 AppendPlainWords(text[pos..match.Index], tokens, defaultColor);
 
-            if (ExcludedAbbreviations.Contains(match.Value))
-                AppendPlainWords(match.Value, tokens, defaultColor);
-            else
-                tokens.Add(new Token(match.Value, AccentGold));
+            // Отдельными словами, а не одним цельным токеном - иначе составное имя вроде "Arcane
+            // Circle" не может перенестись по словам как обычный текст: если целиком не влезает
+            // на текущую строку, туда не попадает вообще ничего, хотя одно слово влезло бы, а
+            // остаток пустой строки до края окна просто пропадает.
+            AppendPlainWords(match.Value, tokens, ExcludedAbbreviations.Contains(match.Value) ? defaultColor : AccentGold);
 
             pos = match.Index + match.Length;
         }
