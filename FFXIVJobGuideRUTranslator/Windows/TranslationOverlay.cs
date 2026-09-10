@@ -61,8 +61,9 @@ public static class TranslationOverlay
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
     private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
-    // Названия умений/статусов, упомянутые внутри предложения - тот же единственный акцентный цвет.
-    private static readonly Vector4 NameHighlightColor = AccentColor;
+    // Названия умений/статусов, упомянутые внутри предложения ("Holy Spirit", "Confiteor" и т.п.) -
+    // в оригинале это ДРУГОЙ цвет, оранжевый, отдельно от зелёных меток (Duration/Additional Effect).
+    private static readonly Vector4 NameHighlightColor = new(0.90f, 0.62f, 0.32f, 1f);
 
     // Подряд идущие слова с большой буквы (латиница) - кандидаты на "это название умения/статуса".
     private static readonly Regex CapitalizedRunRegex =
