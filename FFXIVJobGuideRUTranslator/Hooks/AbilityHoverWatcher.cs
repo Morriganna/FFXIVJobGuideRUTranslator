@@ -58,8 +58,42 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         float U, float V, float SpriteWidth, float SpriteHeight,
         float TopOffset, float BottomOffset, float LeftOffset, float RightOffset);
 
-    /// <summary>Что показано прямо сейчас в одном из отслеживаемых окон, или null. Живёт один кадр (см. <see cref="ResetForNextFrame"/>).</summary>
-    public HoverInfo? Current { get; private set; }
+    /// <summary>
+    /// Что показано прямо сейчас в одном из отслеживаемых окон, или null.
+    ///
+    /// Раньше это жило "один кадр" по схеме "выставили в OnAddonPostDraw -> погасили в конце
+    /// Plugin.OnDraw (ResetForNextFrame)". Это ломалось для NativeTranslationOverlayNode:
+    /// OverlayController из KamiToolKit обновляет свои ноды по СВОЕМУ циклу, а не по событию
+    /// UiBuilder.Draw (которым и был Plugin.OnDraw) - относительный порядок "PostDraw родного
+    /// аддона / сброс в конце ImGui-кадра / OnUpdate оверлея" непредсказуем между разными
+    /// подсистемами, и на практике OnUpdate почти всегда читал уже сброшенное значение (см. лог:
+    /// оверлей стабильно видел "нет наведённого умения", хотя родная подсказка при этом гасла -
+    /// то есть OnAddonPostDraw точно отрабатывал и находил перевод).
+    ///
+    /// Вместо привязки к конкретному событию-кадру теперь значение просто "свежее" в течение
+    /// небольшого окна времени после последней установки (см. StaleAfterMs) - не имеет значения,
+    /// кто и когда его читает, ImGui-оверлей или обновление KamiToolKit.
+    /// </summary>
+    public HoverInfo? Current
+    {
+        get
+        {
+            var value = currentValue;
+            if (value is null)
+                return null;
+
+            return Environment.TickCount64 - lastSeenTicksMs <= StaleAfterMs ? value : null;
+        }
+    }
+
+    private HoverInfo? currentValue;
+    private long lastSeenTicksMs;
+
+    // С запасом больше одного кадра (даже при просадке до ~20 FPS это 50мс) на случай, если
+    // OnUpdate оверлея и OnAddonPostDraw аддона не синхронны по кадрам, но всё ещё достаточно
+    // мало, чтобы перевод не "зависал" в воздухе заметное время после того, как курсор реально
+    // убрали с умения.
+    private const long StaleAfterMs = 150;
 
     public AbilityHoverWatcher(
         IAddonLifecycle addonLifecycle,
@@ -100,15 +134,6 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
         log.Information($"[JobGuideRU] Слушаю аддоны: {string.Join(", ", registeredAddonNames)}");
     }
-
-    /// <summary>
-    /// Вызывать из UiBuilder.Draw ПОСЛЕ того, как оверлей с переводом (если он был) уже
-    /// нарисован за этот кадр. Сбрасывает Current, чтобы на следующем кадре оверлей показался
-    /// снова, только если хотя бы один из отслеживаемых аддонов реально ещё виден и сам вызовет
-    /// OnAddonPostDraw заново - иначе (подсказка исчезла/навели на другое место) оверлей
-    /// естественным образом пропадёт, без ручного отслеживания состояния "видимо/нет".
-    /// </summary>
-    public void ResetForNextFrame() => Current = null;
 
     private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
     {
@@ -169,7 +194,8 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                     background = nineGrid;
                 }
 
-                Current = new HoverInfo(entry, addon->X, addon->Y, width, height, background);
+                currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, background);
+                lastSeenTicksMs = Environment.TickCount64;
 
                 // Экспериментальный режим (см. Configuration.UseNativeTranslationWindow): прячем
                 // РОДНУЮ подсказку только на кадрах, где для неё точно есть перевод - её ноды при

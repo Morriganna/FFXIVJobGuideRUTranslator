@@ -118,12 +118,13 @@ public sealed class Plugin : IDalamudPlugin
         //  - экспериментальный (Configuration.UseNativeTranslationWindow) - NativeTranslationOverlayNode,
         //    настоящие ноды игры через KamiToolKit; сам обновляет себя через OverlayController,
         //    здесь ничего дополнительно дёргать не нужно - только не рисовать одновременно оба.
-        // CurrentEntry живёт ровно один кадр: если ни один отслеживаемый аддон не "подсветил" его
-        // заново на этом кадре (подсказка игры уже не показана), ResetForNextFrame его погасит.
+        // AbilityHoverWatcher.Current сам "гаснет", если его не обновляли последние ~150мс (см.
+        // StaleAfterMs в AbilityHoverWatcher) - раньше сброс делался вручную здесь же, в конце
+        // ImGui-кадра, но это ломало NativeTranslationOverlayNode: OverlayController обновляет
+        // свои ноды по собственному циклу, не по UiBuilder.Draw, поэтому OnUpdate почти всегда
+        // читал уже сброшенное значение (см. историю правок).
         if (!Configuration.UseNativeTranslationWindow)
             TranslationOverlay.Draw(hoverWatcher?.Current);
-
-        hoverWatcher?.ResetForNextFrame();
     }
 
     public void ApplyAddonRegistrations() => hoverWatcher?.ApplyRegistrations();
