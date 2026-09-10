@@ -1,6 +1,8 @@
 using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Interface.GameFonts;
+using Dalamud.Interface.ManagedFontAtlas;
 using FFXIVJobGuideRUTranslator.Data;
 
 namespace FFXIVJobGuideRUTranslator.Windows;
@@ -11,15 +13,15 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// в AbilityHoverWatcher про то, почему это не сработало). Окно ImGui само разворачивается под
 /// любой объём текста, ничего в памяти игры не трогает и в принципе не может сломать её UI.
 ///
-/// Внешний вид подогнан под стилистику родной подсказки умения: тёмный, почти чёрный фон,
-/// тонкая рамка с минимальным скруглением углов (как в игре), тонкий серый разделитель под
-/// заголовком, и подсветка тех же меток, что игра красит цветом в оригинале - "Duration:"
-/// (зелёный) и "Additional Effect:" (золотой). Сама вёрстка (иконка/Range/Radius/Cast/Recast
-/// и т.п.) не воспроизводится - это по-прежнему отдельное окно, а не копия родного.
+/// По внешнему виду специально старается быть визуальным "двойником" родной подсказки: тот же
+/// шрифт (настоящий игровой Axis через Dalamud GameFontStyle, а не системный шрифт ImGui), тот же
+/// тёмный фон и тонкая рамка с почти прямыми углами, та же подсветка меток - "Duration:" зелёным,
+/// "Additional Effect:" золотым. Никакой собственной подписи/шапки не рисует - просто текст
+/// описания, как если бы это была ещё одна такая же плашка, только на русском.
 /// </summary>
 public static class TranslationOverlay
 {
-    private const float WrapWidth = 340f;
+    private const float WrapWidth = 360f;
     private const float Margin = 8f;
 
     // Цвета подобраны на глаз под то, как их красит родная подсказка игры (см. скриншоты в истории
@@ -38,15 +40,25 @@ public static class TranslationOverlay
     };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
-    private static readonly Vector4 GoldAccent = new(0.75f, 0.62f, 0.32f, 0.9f); // "Additional Effect:" и т.п. - только там, где так красит сама игра
-    private static readonly Vector4 MutedLabelColor = new(0.62f, 0.62f, 0.65f, 0.9f); // как серые подписи "Acquired"/"Affinity" в родной подсказке
-    private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f); // как тонкие серые разделители в родной подсказке (не золотые)
+    private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
 
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
-    // кадр незаметно глазу, а окну курсора это не мешает - false-положительный "прыжок" возможен
-    // разве что в самый первый кадр показа, пока используется значение по умолчанию.
-    private static Vector2 lastSize = new(340, 90);
+    // кадр незаметно глазу.
+    private static Vector2 lastSize = new(360, 90);
+
+    private static IFontHandle? bodyFontHandle;
+
+    /// <summary>
+    /// Настоящий игровой шрифт (Axis) вместо системного шрифта ImGui - визуально это даёт куда
+    /// больше сходства с родной подсказкой, чем любая подгонка цветов/рамок. Создаётся один раз
+    /// и держится на весь сеанс игры.
+    /// </summary>
+    private static IFontHandle GetBodyFont()
+    {
+        return bodyFontHandle ??= Plugin.PluginInterface.UiBuilder.FontAtlas.NewGameFontHandle(
+            new GameFontStyle(GameFontFamilyAndSize.Axis14));
+    }
 
     /// <summary>Рисует оверлей, если entry не null. Вызывать из UiBuilder.Draw.</summary>
     public static void Draw(TranslationEntry? entry)
@@ -73,14 +85,14 @@ public static class TranslationOverlay
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
-        // Тёмный, почти чёрный (с лёгким тёплым оттенком) фон и тонкая рамка с минимальным
-        // скруглением углов - под стиль родной подсказки умения (там углы почти прямые).
+        // Тёмный, почти чёрный (с лёгким тёплым оттенком) фон и тонкая рамка практически без
+        // скругления углов - под стиль родной подсказки умения.
         ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
         ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(11, 9));
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(12, 9));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 2f);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0f);
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(4, 5));
 
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
@@ -91,16 +103,10 @@ public static class TranslationOverlay
                                         | ImGuiWindowFlags.NoInputs
                                         | ImGuiWindowFlags.AlwaysAutoResize;
 
+        using var fontPush = GetBodyFont().Push();
+
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
-            ImGui.SetWindowFontScale(0.82f);
-            ImGui.TextColored(MutedLabelColor, "Перевод (ff14jobguide.ru)");
-            ImGui.SetWindowFontScale(1f);
-
-            // Тонкая разделительная линия под заголовком - как в самой игре между секциями подсказки.
-            ImGui.Separator();
-            ImGui.Spacing();
-
             foreach (var line in entry.Content.Split('\n'))
                 DrawLine(line);
 
