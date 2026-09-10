@@ -55,9 +55,6 @@ public static class TranslationOverlay
         "Комбо-действие",
         "Комбо бонус",
         "Бонус комбо",
-        "Сила комбо",
-        "Сила в комбо",
-        "Стоимость", // "Gauge Cost:"/"Oath Gauge Cost:" и т.п.
     };
 
     // Составные метки вида "Эффект <Название статуса>:" (например "Эффект Knight's Resolve:",
@@ -65,6 +62,18 @@ public static class TranslationOverlay
     // отдельное умение, а статус, произведённый от него), но сама метка целиком зелёная в
     // оригинале, как и остальные строки из FullyAccentedLinePrefixes.
     private static readonly Regex EffectOfNamedStatusRegex = new(@"^Эффект\s", RegexOptions.Compiled);
+
+    // Строки вида "Сила ... <Название>: N" ("Сила под эффектом Divine Might: 500") и "Стоимость
+    // ... <Название>: N" ("Стоимость шкалы Oath: 50") - здесь название статуса/шкалы является
+    // ЧАСТЬЮ САМОЙ МЕТКИ (составное имя стата), а не отдельно упомянутой вещью, поэтому оно тоже
+    // зелёное, БЕЗ отдельного оранжевого вырезания - в отличие, например, от "Additional Effect:
+    // Grants Knight's Resolve", где имя статуса - самостоятельный объект предложения и красится
+    // отдельно (см. Tokenize/highlightNames).
+    private static readonly string[] UniformAccentLinePrefixes =
+    {
+        "Сила",
+        "Стоимость",
+    };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
     private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
@@ -224,7 +233,16 @@ public static class TranslationOverlay
     /// </summary>
     private static void DrawLine(string line)
     {
-        var isFullyAccented = EffectOfNamedStatusRegex.IsMatch(line);
+        var isUniformAccent = false;
+        foreach (var prefix in UniformAccentLinePrefixes)
+        {
+            if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+            isUniformAccent = true;
+            break;
+        }
+
+        var isFullyAccented = isUniformAccent || EffectOfNamedStatusRegex.IsMatch(line);
         if (!isFullyAccented)
         {
             foreach (var prefix in FullyAccentedLinePrefixes)
@@ -237,7 +255,9 @@ public static class TranslationOverlay
         }
 
         var defaultColor = isFullyAccented ? AccentColor : BodyColor;
-        var tokens = Tokenize(line, defaultColor);
+        // В "Сила .../Стоимость ..." строках название - часть составной метки, а не отдельно
+        // упомянутая вещь, поэтому его не вырезаем отдельным цветом - вся строка одного цвета.
+        var tokens = Tokenize(line, defaultColor, highlightNames: !isUniformAccent);
 
         var cursorX = 0f;
         var atLineStart = true;
@@ -289,7 +309,7 @@ public static class TranslationOverlay
     /// слов в русском переводе не бывает), теперь подсвечиваются ВСЕ такие куски одинаково,
     /// кроме короткой служебки вроде "HP"/"MP" (её игра просто не выделяет).
     /// </summary>
-    private static List<Token> Tokenize(string text, Vector4 defaultColor)
+    private static List<Token> Tokenize(string text, Vector4 defaultColor, bool highlightNames = true)
     {
         var tokens = new List<Token>();
         var pos = 0;
@@ -299,7 +319,7 @@ public static class TranslationOverlay
             if (match.Index > pos)
                 AppendPlainWords(text[pos..match.Index], tokens, defaultColor);
 
-            if (ExcludedAbbreviations.Contains(match.Value))
+            if (!highlightNames || ExcludedAbbreviations.Contains(match.Value))
                 AppendPlainWords(match.Value, tokens, defaultColor);
             else
                 tokens.Add(new Token(match.Value, NameHighlightColor));
