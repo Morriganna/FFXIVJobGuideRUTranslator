@@ -52,8 +52,11 @@ public static class TranslationOverlay
         ("Комбо-действие", AccentColor),
         ("Комбо бонус", AccentColor),
         ("Бонус комбо", AccentColor),
-        // "Potency:"/"Cure Potency:"/"Gauge Cost:" и т.п. в оригинале - обычный белый текст, без
-        // отдельного акцента - намеренно не подсвечиваем "Сила ..."/"Стоимость".
+        // Комбо-статы (Combo Potency/Combo Action/Combo Bonus) в оригинале зелёные вместе с
+        // остальным комбо-блоком - в отличие от обычного "Potency:"/"Cure Potency:" вне контекста
+        // комбо, который остаётся обычным белым текстом без акцента.
+        ("Сила комбо", AccentColor),
+        ("Сила в комбо", AccentColor),
     };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
