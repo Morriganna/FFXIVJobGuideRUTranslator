@@ -17,14 +17,16 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// то, почему это не сработало). Окно ImGui само разворачивается под любой объём текста, ничего
 /// в памяти игры не трогает и в принципе не может сломать её UI.
 ///
-/// По внешнему виду специально старается быть визуальным "двойником" родной подсказки: тот же
-/// шрифт (настоящий игровой Axis через Dalamud GameFontStyle), тёмный фон, тонкая рамка с почти
-/// прямыми углами и компактные отступы, та же подсветка меток ("Duration:" зелёным, "Additional
-/// Effect:"/"Cure Potency:" золотым/голубым) И названий умений/статусов ПРЯМО ВНУТРИ предложения
-/// (они остаются на английском в переводе - оригинал их не переводит, как и мы) - так же, как это
-/// делает сама игра. Перенос строк реализован вручную, по словам (а не через PushTextWrapPos) -
-/// иначе разноцветные куски одного абзаца "залипают" на отступе первого куска при переносе
-/// (см. историю правок).
+/// По внешнему виду специально старается быть визуальным "двойником" родной подсказки:
+/// НАСТОЯЩАЯ текстура фона/рамки, которую в данный момент использует сама игра (см.
+/// AbilityHoverWatcher.TryGetBackgroundNineGrid - берём ссылку на уже загруженную GPU-текстуру
+/// прямо из живой ноды окна и рисуем её как честный девятислайс, а не приближение цветом); если
+/// текстуру достать не удалось - откат на плоский тёмный фон с тонкой рамкой. Плюс настоящий
+/// игровой шрифт (Axis через Dalamud GameFontStyle), та же подсветка меток ("Duration:" зелёным,
+/// "Additional Effect:"/"Cure Potency:" золотым/голубым) И названий умений/статусов ПРЯМО ВНУТРИ
+/// предложения (они остаются на английском в переводе - оригинал их не переводит, как и мы).
+/// Перенос строк реализован вручную, по словам (а не через PushTextWrapPos) - иначе разноцветные
+/// куски одного абзаца "залипают" на отступе первого куска при переносе (см. историю правок).
 /// </summary>
 public static class TranslationOverlay
 {
@@ -110,11 +112,18 @@ public static class TranslationOverlay
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
-        // Тёмный, почти чёрный (с лёгким тёплым оттенком) фон и тонкая рамка практически без
-        // скругления углов - под стиль родной подсказки умения. Отступы и интервалы компактные,
-        // под стать плотной вёрстке родной плашки (не просторный "воздух" по умолчанию у ImGui).
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
-        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
+        // Если удалось достать настоящую текстуру фона родного окна - рисуем её (см. ниже,
+        // DrawNineSlice), а собственный плоский фон/рамку ImGui делаем прозрачными, чтобы не
+        // мешались под ней. Если нет (не нашли NineGrid-ноду, текстура ещё не готова и т.п.) -
+        // используем приближение цветом как раньше.
+        var hasRealBackground = info.Background is not null;
+
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, hasRealBackground
+            ? new Vector4(0, 0, 0, 0)
+            : new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
+        ImGui.PushStyleColor(ImGuiCol.Border, hasRealBackground
+            ? new Vector4(0, 0, 0, 0)
+            : new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7, 5));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
@@ -133,6 +142,12 @@ public static class TranslationOverlay
 
         if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
         {
+            // Рисуем ДО текста (первым в draw list = самый нижний слой), размер берём с
+            // предыдущего кадра (см. lastSize) - ImGui не знает итоговый размер
+            // AlwaysAutoResize-окна до того, как весь контент этого кадра уже отправлен.
+            if (info.Background is { } bg)
+                DrawNineSlice(bg, ImGui.GetWindowPos(), lastSize);
+
             foreach (var line in info.Entry.Content!.Split('\n'))
                 DrawLine(line, repository);
 
@@ -142,6 +157,48 @@ public static class TranslationOverlay
         ImGui.End();
         ImGui.PopStyleVar(4);
         ImGui.PopStyleColor(3);
+    }
+
+    /// <summary>
+    /// Рисует настоящую текстуру фона родного окна как девятислайс (края/углы не растягиваются,
+    /// растягивается только середина) на весь прямоугольник нашего окна. Раскладка TopOffset/
+    /// BottomOffset/LeftOffset/RightOffset как толщины кромок - предположение, см. комментарий
+    /// в AbilityHoverWatcher.TryGetBackgroundNineGrid.
+    /// </summary>
+    private static void DrawNineSlice(AbilityHoverWatcher.NineGridInfo bg, Vector2 winPos, Vector2 winSize)
+    {
+        if (bg.TextureWidth <= 0 || bg.TextureHeight <= 0 || bg.SpriteWidth <= 0 || bg.SpriteHeight <= 0)
+            return;
+
+        var drawList = ImGui.GetWindowDrawList();
+
+        var innerRight = bg.SpriteWidth - bg.RightOffset;
+        var innerBottom = bg.SpriteHeight - bg.BottomOffset;
+
+        Span<float> srcX = stackalloc float[] { 0, bg.LeftOffset, innerRight, bg.SpriteWidth };
+        Span<float> srcY = stackalloc float[] { 0, bg.TopOffset, innerBottom, bg.SpriteHeight };
+
+        Span<float> dstX = stackalloc float[] { 0, bg.LeftOffset, winSize.X - bg.RightOffset, winSize.X };
+        Span<float> dstY = stackalloc float[] { 0, bg.TopOffset, winSize.Y - bg.BottomOffset, winSize.Y };
+
+        for (var row = 0; row < 3; row++)
+        {
+            for (var col = 0; col < 3; col++)
+            {
+                var p0 = winPos + new Vector2(dstX[col], dstY[row]);
+                var p1 = winPos + new Vector2(dstX[col + 1], dstY[row + 1]);
+                if (p1.X <= p0.X || p1.Y <= p0.Y)
+                    continue; // окно меньше суммы кромок - вырожденный кусок, пропускаем
+
+                var uv0 = new Vector2((bg.U + srcX[col]) / bg.TextureWidth, (bg.V + srcY[row]) / bg.TextureHeight);
+                var uv1 = new Vector2((bg.U + srcX[col + 1]) / bg.TextureWidth, (bg.V + srcY[row + 1]) / bg.TextureHeight);
+
+                // bg.TextureId - nint (D3D11ShaderResourceView*). Если эта строка не компилируется
+                // из-за типа текстуры, попробуйте явный каст: (ImTextureID)bg.TextureId либо
+                // new ImTextureID(bg.TextureId) - конкретное имя типа зависит от версии биндинга.
+                drawList.AddImage(bg.TextureId, p0, p1, uv0, uv1);
+            }
+        }
     }
 
     /// <summary>

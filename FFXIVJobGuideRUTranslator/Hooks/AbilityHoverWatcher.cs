@@ -45,7 +45,18 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     private readonly HashSet<string> registeredAddonNames = new();
 
     /// <summary>Умение + экранные координаты и размер РОДНОГО окна, в котором оно показано - только чтение, координаты нужны, чтобы поставить перевод рядом, а не там, где сейчас курсор мыши (иначе в списках/панелях перевод оказывается где попало и перекрывает контент).</summary>
-    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height);
+    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height, NineGridInfo? Background);
+
+    /// <summary>
+    /// Ссылка на РЕАЛЬНУЮ текстуру фона родного окна (та же самая, что уже загружена и
+    /// используется игрой прямо сейчас) вместе с геометрией девятислайса - чтобы нарисовать
+    /// перевод в плашке, которая один-в-один так же выглядит, как родная, а не в приближении
+    /// цветом. Только чтение - сам объект текстуры/ноды не модифицируется никак.
+    /// </summary>
+    public readonly record struct NineGridInfo(
+        nint TextureId, float TextureWidth, float TextureHeight,
+        float U, float V, float SpriteWidth, float SpriteHeight,
+        float TopOffset, float BottomOffset, float LeftOffset, float RightOffset);
 
     /// <summary>Что показано прямо сейчас в одном из отслеживаемых окон, или null. Живёт один кадр (см. <see cref="ResetForNextFrame"/>).</summary>
     public HoverInfo? Current { get; private set; }
@@ -146,13 +157,89 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 // Только читаем координаты окна - X/Y/масштаб самой игры, ничего не меняем.
                 var width = addon->GetScaledWidth(true);
                 var height = addon->GetScaledHeight(true);
-                Current = new HoverInfo(entry, addon->X, addon->Y, width, height);
+                var background = TryGetBackgroundNineGrid(addon, out var nineGrid) ? nineGrid : (NineGridInfo?)null;
+                Current = new HoverInfo(entry, addon->X, addon->Y, width, height, background);
             }
         }
         catch (Exception ex)
         {
             log.Error(ex, $"[JobGuideRU] Ошибка при обработке аддона {args.AddonName}");
         }
+    }
+
+    /// <summary>
+    /// Ищет самую большую по площади NineGrid-ноду в окне (кандидат на "это и есть фон/рамка")
+    /// и достаёт из неё ссылку на уже загруженную игрой текстуру + геометрию 9-слайса. Только
+    /// чтение: адрес ноды/её полей не изменяется, берём копию нужных значений.
+    /// Раскладка полей (TopOffset/BottomOffset/LeftOffset/RightOffset как толщина каждой из
+    /// четырёх кромок в пикселях спрайта, а не абсолютные координаты среза) - предположение по
+    /// имени полей в FFXIVClientStructs, не проверено на живом клиенте: если углы плашки при
+    /// растяжении выглядят перекошенными, вероятно, нужно поменять интерпретацию этих четырёх
+    /// значений в TranslationOverlay.DrawNineSlice.
+    /// </summary>
+    private static bool TryGetBackgroundNineGrid(AtkUnitBase* addon, out NineGridInfo info)
+    {
+        info = default;
+        AtkNineGridNode* best = null;
+        var bestArea = 0f;
+
+        Scan((AtkResNode*)addon->RootNode);
+        for (var i = 0; i < addon->UldManager.NodeListCount; i++)
+            Scan(addon->UldManager.NodeList[i]);
+
+        void Scan(AtkResNode* node)
+        {
+            while (node is not null)
+            {
+                if (node->Type == NodeType.NineGrid)
+                {
+                    var area = (float)node->Width * node->Height;
+                    if (area > bestArea)
+                    {
+                        bestArea = area;
+                        best = (AtkNineGridNode*)node;
+                    }
+                }
+                else if (node->Type >= NodeType.Component)
+                {
+                    var component = ((AtkComponentNode*)node)->Component;
+                    if (component is not null && component->UldManager.NodeList is not null)
+                    {
+                        for (var i = 0; i < component->UldManager.NodeListCount; i++)
+                            Scan(component->UldManager.NodeList[i]);
+                    }
+                }
+
+                if (node->ChildNode is not null)
+                    Scan(node->ChildNode);
+
+                node = node->PrevSiblingNode;
+            }
+        }
+
+        if (best is null)
+            return false;
+
+        var partsList = best->PartsList;
+        if (partsList is null || best->PartId >= partsList->PartCount)
+            return false;
+
+        var part = &partsList->Parts[best->PartId];
+        var asset = part->UldAsset;
+        if (asset is null || !asset->AtkTexture.IsTextureReady())
+            return false;
+
+        var texture = asset->AtkTexture.GetKernelTexture();
+        if (texture is null || texture->D3D11ShaderResourceView is null)
+            return false;
+
+        info = new NineGridInfo(
+            (nint)texture->D3D11ShaderResourceView,
+            texture->ActualWidth,
+            texture->ActualHeight,
+            part->U, part->V, part->Width, part->Height,
+            best->TopOffset, best->BottomOffset, best->LeftOffset, best->RightOffset);
+        return true;
     }
 
     private static IEnumerable<string?> EnumerateTextNodes(AtkUnitBase* addon)
