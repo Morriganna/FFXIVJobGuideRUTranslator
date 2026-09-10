@@ -41,6 +41,13 @@ public static class TranslationOverlay
         ("Комбо-действие", new Vector4(0.85f, 0.72f, 0.40f, 1f)),
         ("Комбо бонус", new Vector4(0.85f, 0.72f, 0.40f, 1f)),
         ("Бонус комбо", new Vector4(0.85f, 0.72f, 0.40f, 1f)),
+        // "Cure Potency:"/"Attack Potency:" и т.п. в оригинале - голубоватый, отдельно от золотого.
+        ("Сила лечения", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
+        ("Сила исцеления", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
+        ("Сила атаки", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
+        ("Сила урона", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
+        ("Сила в комбо", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
+        ("Сила комбо", new Vector4(0.45f, 0.75f, 0.90f, 1f)),
     };
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
