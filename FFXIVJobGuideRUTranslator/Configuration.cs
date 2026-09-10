@@ -18,7 +18,7 @@ public class Configuration : IPluginConfiguration
         "ActionDetail",
     };
 
-    /// <summary>UTC-время последнего успешного обновления перевода с GitHub. Null = используется только бандл.</summary>
+    /// <summary>UTC-время последнего успешного обновления перевода с GitHub. Null = перевод ещё ни разу не скачивался.</summary>
     public DateTime? LastUpdateUtc { get; set; }
 
     public void Save()

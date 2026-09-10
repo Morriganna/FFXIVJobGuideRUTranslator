@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using Dalamud.Game;
 using Dalamud.Plugin.Services;
 
@@ -11,9 +10,9 @@ namespace FFXIVJobGuideRUTranslator.Data;
 /// <summary>
 /// Держит в памяти весь загруженный перевод и его сопоставление с реальными ID умений игры.
 ///
-/// Источники данных, в порядке приоритета:
-///  1) файлы, скачанные командой "/jgru update" и сохранённые в конфиг-папке плагина (если есть);
-///  2) JSON, вшитый в сборку на этапе компиляции (Data/SourceJson/**), как резервный вариант.
+/// Единственный источник данных - файлы, скачанные с GitHub (репозиторий FFXIVJobGuideRU, см.
+/// TranslationUpdater) и сохранённые в конфиг-папке плагина. В сборку JSON не вшит - при первом
+/// запуске (пока файлов ещё нет) Plugin сам вызывает скачивание, см. Plugin.
 ///
 /// Ничего не подменяется в самих названиях умений — они используются только как ключ поиска.
 ///
@@ -49,7 +48,7 @@ public sealed class TranslationRepository
         this.overrideDirectory = overrideDirectory;
     }
 
-    /// <summary>Перезагружает перевод из файлов на диске (если есть) или из вшитого в сборку бандла, и заново разрешает ID.</summary>
+    /// <summary>Перезагружает перевод из скачанных файлов на диске (если есть), и заново разрешает ID.</summary>
     public void Reload()
     {
         var parsed = new List<TranslationEntry>();
@@ -76,28 +75,10 @@ public sealed class TranslationRepository
         }
         else
         {
-            var assembly = Assembly.GetExecutingAssembly();
-            var resourceNames = assembly.GetManifestResourceNames()
-                .Where(n => n.Contains("SourceJson") && n.EndsWith(".json", StringComparison.OrdinalIgnoreCase));
-
-            foreach (var resourceName in resourceNames)
-            {
-                try
-                {
-                    using var stream = assembly.GetManifestResourceStream(resourceName);
-                    if (stream is null)
-                        continue;
-                    using var reader = new StreamReader(stream);
-                    var json = reader.ReadToEnd();
-                    parsed.AddRange(RawSourceParsing.ParseFile(json));
-                }
-                catch (Exception ex)
-                {
-                    log.Warning(ex, $"[JobGuideRU] Не удалось разобрать встроенный ресурс {resourceName}");
-                }
-            }
-
-            log.Information($"[JobGuideRU] Загружаю перевод из встроенного в плагин бандла.");
+            // Первый запуск - ничего ещё не скачано (в сборку JSON не вшит). Plugin сам вызовет
+            // UpdateTranslationsAsync и перезагрузит репозиторий по завершении - здесь просто
+            // остаёмся с пустым списком до этого момента.
+            log.Information("[JobGuideRU] Скачанного перевода пока нет - жду первой загрузки с GitHub.");
         }
 
         TotalParsed = parsed.Count;
@@ -128,16 +109,25 @@ public sealed class TranslationRepository
             if (entry.SourceActionId is not { } sourceId || sourceId == 0)
                 continue;
 
-            // Если id указывает на строку листа Action, но её имя НЕ совпадает с EnglishName
-            // записи - значит в текущей версии игры этот числовой id сместился и указывает уже
-            // на другое умение (источник не успел обновиться под патч). Доверять такому id
-            // нельзя - показал бы чужую иконку/статы; сбрасываем и ищем по имени ниже, как для
-            // записей без id вообще.
-            if (ActionStatsById.TryGetValue(sourceId, out var actionRow) &&
-                !string.Equals(actionRow.Name, entry.EnglishName, StringComparison.OrdinalIgnoreCase))
+            if (ActionStatsById.TryGetValue(sourceId, out var actionRow))
             {
-                rejectedStaleId++;
-                continue;
+                // Имя строки НЕ совпадает с EnglishName записи - в текущей версии игры этот
+                // числовой id сместился и указывает уже на другое умение (источник не успел
+                // обновиться под патч).
+                var nameMismatch = !string.Equals(actionRow.Name, entry.EnglishName, StringComparison.OrdinalIgnoreCase);
+
+                // Имя совпадает, но строка выглядит НЕ как умение игрока (уровень 0 и ни одной
+                // работы) - листы Action нередко содержат несколько строк с одинаковым именем:
+                // настоящее умение игрока и атаку монстра/NPC с тем же названием (пример: "Leg
+                // Sweep" - RowId 82 это монстр, RowId 7863 - игрок). Числовой id может указывать
+                // именно на монстра - такое совпадение имени не спасает.
+                var looksLikeNonPlayerRow = actionRow.Level == 0 && actionRow.Jobs.Count == 0;
+
+                if (nameMismatch || looksLikeNonPlayerRow)
+                {
+                    rejectedStaleId++;
+                    continue;
+                }
             }
 
             entry.ActionId = sourceId;
@@ -185,7 +175,12 @@ public sealed class TranslationRepository
             "Action",
             row => row.RowId,
             row => row.Name.ToString(),
-            row => actionDescriptions.TryGetValue(row.RowId, out var description) ? description : string.Empty);
+            row => actionDescriptions.TryGetValue(row.RowId, out var description) ? description : string.Empty,
+            // Некоторые названия задублированы между настоящим умением игрока и NPC-способностью
+            // монстра с тем же именем (пример: "Leg Sweep" - RowId 82 это атака монстра,
+            // ClassJobLevel 0, без работ; RowId 7863 - настоящее умение игрока, уровень 10).
+            // ClassJobLevel у игрока всегда > 0 - предпочитаем строку с более высоким значением.
+            row => row.ClassJobLevel);
 
         TryResolveSheet<Lumina.Excel.Sheets.CraftAction>(
             "CraftAction",
@@ -197,7 +192,8 @@ public sealed class TranslationRepository
             string sheetLabel,
             Func<T, uint> getRowId,
             Func<T, string> getName,
-            Func<T, string> getDescription)
+            Func<T, string> getDescription,
+            Func<T, int>? priority = null)
             where T : struct, Lumina.Excel.IExcelRow<T>
         {
             try
@@ -209,19 +205,34 @@ public sealed class TranslationRepository
                     return;
                 }
 
-                var matched = 0;
+                // Сначала выбираем ЛУЧШУЮ строку на каждое английское имя (по priority, если
+                // задан), а не первую попавшуюся - иначе при задублированных именах (см.
+                // комментарий у Action выше) могли бы сопоставить с посторонней строкой.
+                var bestByName = new Dictionary<string, T>(StringComparer.OrdinalIgnoreCase);
                 foreach (var row in sheet)
                 {
                     var name = getName(row);
                     if (string.IsNullOrWhiteSpace(name))
                         continue;
-                    if (!byEnglishName.TryGetValue(name.Trim(), out var candidates))
+
+                    var key = name.Trim();
+                    if (!byEnglishName.ContainsKey(key))
                         continue;
 
+                    if (!bestByName.TryGetValue(key, out var existing) ||
+                        (priority?.Invoke(row) ?? 0) > (priority?.Invoke(existing) ?? 0))
+                    {
+                        bestByName[key] = row;
+                    }
+                }
+
+                var matched = 0;
+                foreach (var (name, row) in bestByName)
+                {
                     var rowId = getRowId(row);
                     var description = getDescription(row) ?? string.Empty;
 
-                    foreach (var candidate in candidates)
+                    foreach (var candidate in byEnglishName[name])
                     {
                         // Если запись уже разрешена другим листом - не перезаписываем.
                         if (candidate.IsResolved)

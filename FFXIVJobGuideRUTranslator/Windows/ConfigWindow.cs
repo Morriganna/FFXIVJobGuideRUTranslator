@@ -65,7 +65,7 @@ public class ConfigWindow : Window, IDisposable
         ImGui.TextUnformatted($"Сопоставлено с ID умений игры: {plugin.Repository.TotalResolved}");
         ImGui.TextUnformatted(configuration.LastUpdateUtc is { } last
             ? $"Последнее обновление с GitHub: {last.ToLocalTime():g}"
-            : "Перевод: встроенный в плагин бандл (обновление с GitHub ещё не запускалось)");
+            : "Перевод ещё не скачан.");
 
         ImGui.Separator();
 
@@ -73,14 +73,9 @@ public class ConfigWindow : Window, IDisposable
         {
             ImGui.TextUnformatted("Обновляю перевод с GitHub...");
         }
-        else
+        else if (ImGui.Button("Обновить перевод с GitHub"))
         {
-            if (ImGui.Button("Обновить перевод с GitHub"))
-                plugin.UpdateTranslationsAsync();
-
-            ImGui.SameLine();
-            if (ImGui.Button("Перезагрузить встроенный бандл"))
-                plugin.ReloadBundledTranslations();
+            plugin.UpdateTranslationsAsync();
         }
 
         if (!string.IsNullOrEmpty(plugin.LastUpdateStatus))

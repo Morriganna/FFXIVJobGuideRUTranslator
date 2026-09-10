@@ -13,10 +13,4 @@
     <Tags>translation;russian;localization;actions</Tags>
   </PropertyGroup>
 
-  <ItemGroup>
-    <!-- Бандл переводов из DB/*.json репозитория FFXIVJobGuideRU, скачанный на момент сборки.
-         Компилируется прямо в DLL, поэтому плагину не нужен интернет, чтобы работать -
-         только чтобы обновить перевод командой "/jgru update". -->
-    <EmbeddedResource Include="Data\SourceJson\**\*.json" />
-  </ItemGroup>
 </Project>

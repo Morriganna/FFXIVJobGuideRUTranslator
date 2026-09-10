@@ -207,7 +207,8 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
             if (entry is not null)
             {
-                currentValue = new HoverInfo(entry, TryFindIconId(addon));
+                var iconIds = FindIconIds(addon);
+                currentValue = new HoverInfo(entry, iconIds.Count > 0 ? iconIds[0] : null);
                 lastSeenTicksMs = Environment.TickCount64;
 
                 // Alpha, а не IsVisible - выставив IsVisible = false, мы бы сами обрубили PreDraw
@@ -270,27 +271,24 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     }
 
     /// <summary>
-    /// ID иконки первой картиночной ноды (AtkImageNode) в дереве аддона - должна быть той самой
-    /// иконкой умения, что реально рисует игра в этой подсказке, вместо вычисленной нами через
-    /// Lumina/SourceActionId (см. HoverInfo.LiveIconId). Ноды никуда не деваются даже после того,
-    /// как мы гасим альфу корневой ноды - гасится только рендер, не дерево.
+    /// ID всех картиночных нод (AtkImageNode) в дереве аддона, в порядке обхода - первая должна
+    /// быть той самой иконкой умения, что реально рисует игра в этой подсказке, вместо вычисленной
+    /// нами через Lumina/SourceActionId (см. HoverInfo.LiveIconId) - но это не гарантировано, если
+    /// в аддоне несколько картинок (рамки, декор), поэтому ProcessAddon логирует весь список на
+    /// новое умение - по нему видно, точно ли первая иконка в списке правильная. Ноды никуда не
+    /// деваются даже после того, как мы гасим альфу корневой ноды - гасится только рендер, не дерево.
     /// </summary>
-    private static uint? TryFindIconId(AtkUnitBase* addon)
+    private static List<uint> FindIconIds(AtkUnitBase* addon)
     {
-        var found = Find((AtkResNode*)addon->RootNode);
-        if (found is not null)
-            return found;
+        var result = new List<uint>();
 
+        Collect((AtkResNode*)addon->RootNode);
         for (var i = 0; i < addon->UldManager.NodeListCount; i++)
-        {
-            found = Find(addon->UldManager.NodeList[i]);
-            if (found is not null)
-                return found;
-        }
+            Collect(addon->UldManager.NodeList[i]);
 
-        return null;
+        return result;
 
-        static uint? Find(AtkResNode* node)
+        void Collect(AtkResNode* node)
         {
             while (node is not null)
             {
@@ -301,7 +299,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                     {
                         var asset = image->PartsList->Parts[image->PartId].UldAsset;
                         if (asset is not null && asset->Id != 0)
-                            return asset->Id;
+                            result.Add(asset->Id);
                     }
                 }
                 else if (node->Type >= NodeType.Component)
@@ -310,25 +308,15 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                     if (component is not null && component->UldManager.NodeList is not null)
                     {
                         for (var i = 0; i < component->UldManager.NodeListCount; i++)
-                        {
-                            var found = Find(component->UldManager.NodeList[i]);
-                            if (found is not null)
-                                return found;
-                        }
+                            Collect(component->UldManager.NodeList[i]);
                     }
                 }
 
                 if (node->ChildNode is not null)
-                {
-                    var found = Find(node->ChildNode);
-                    if (found is not null)
-                        return found;
-                }
+                    Collect(node->ChildNode);
 
                 node = node->PrevSiblingNode;
             }
-
-            return null;
         }
     }
 

@@ -64,6 +64,12 @@ public sealed class Plugin : IDalamudPlugin
         PluginInterface.UiBuilder.Draw += OnDraw;
         PluginInterface.UiBuilder.OpenConfigUi += ToggleConfigUi;
 
+        // Первый запуск - в конфиг-папке ещё ничего не скачано, а в сборку JSON больше не вшит
+        // (см. csproj) - без этого плагин молча ничего бы не переводил, пока пользователь сам не
+        // догадается нажать "Обновить перевод с GitHub".
+        if (Repository.TotalParsed == 0)
+            UpdateTranslationsAsync();
+
         Log.Information("[JobGuideRU] Плагин загружен.");
     }
 
@@ -117,25 +123,6 @@ public sealed class Plugin : IDalamudPlugin
         Configuration.Save();
     }
 
-    public void ReloadBundledTranslations()
-    {
-        // Удаляем скачанные файлы, чтобы репозиторий вернулся к бандлу, встроенному в сборку.
-        try
-        {
-            if (Directory.Exists(overrideDirectory))
-                Directory.Delete(overrideDirectory, recursive: true);
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "[JobGuideRU] Не удалось удалить папку со скачанным переводом.");
-        }
-
-        Configuration.LastUpdateUtc = null;
-        Configuration.Save();
-        Repository.Reload();
-        LastUpdateStatus = "Возвращён встроенный в плагин перевод.";
-    }
-
     public void UpdateTranslationsAsync()
     {
         if (IsUpdating)
@@ -172,12 +159,6 @@ public sealed class Plugin : IDalamudPlugin
         if (string.Equals(trimmed, "update", StringComparison.OrdinalIgnoreCase))
         {
             UpdateTranslationsAsync();
-            return;
-        }
-
-        if (string.Equals(trimmed, "reload", StringComparison.OrdinalIgnoreCase))
-        {
-            ReloadBundledTranslations();
             return;
         }
 
