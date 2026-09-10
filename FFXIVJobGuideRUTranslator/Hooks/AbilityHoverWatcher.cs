@@ -33,7 +33,11 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         "Sprint",
     };
 
-    public readonly record struct HoverInfo(TranslationEntry Entry);
+    // LiveIconId - ID иконки, реально показанной СЕЙЧАС в этом аддоне (см. TryFindIconId), а не
+    // вычисленный нами через Lumina/SourceActionId (тот может ошибаться, если id из исходного
+    // JSON устарел под текущий патч - см. TranslationRepository). Null, если найти не удалось -
+    // тогда TranslationOverlay откатывается на иконку из ActionStats.
+    public readonly record struct HoverInfo(TranslationEntry Entry, uint? LiveIconId);
 
     // IGameGui.HoveredAction, вопреки документации Dalamud, на практике НЕ сбрасывается в 0, когда
     // курсор уходит в пустое место - держит последнее значение, пока не наведёшь на что-то новое
@@ -203,7 +207,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
             if (entry is not null)
             {
-                currentValue = new HoverInfo(entry);
+                currentValue = new HoverInfo(entry, TryFindIconId(addon));
                 lastSeenTicksMs = Environment.TickCount64;
 
                 // Alpha, а не IsVisible - выставив IsVisible = false, мы бы сами обрубили PreDraw
@@ -262,6 +266,69 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
                 node = node->PrevSiblingNode;
             }
+        }
+    }
+
+    /// <summary>
+    /// ID иконки первой картиночной ноды (AtkImageNode) в дереве аддона - должна быть той самой
+    /// иконкой умения, что реально рисует игра в этой подсказке, вместо вычисленной нами через
+    /// Lumina/SourceActionId (см. HoverInfo.LiveIconId). Ноды никуда не деваются даже после того,
+    /// как мы гасим альфу корневой ноды - гасится только рендер, не дерево.
+    /// </summary>
+    private static uint? TryFindIconId(AtkUnitBase* addon)
+    {
+        var found = Find((AtkResNode*)addon->RootNode);
+        if (found is not null)
+            return found;
+
+        for (var i = 0; i < addon->UldManager.NodeListCount; i++)
+        {
+            found = Find(addon->UldManager.NodeList[i]);
+            if (found is not null)
+                return found;
+        }
+
+        return null;
+
+        static uint? Find(AtkResNode* node)
+        {
+            while (node is not null)
+            {
+                if (node->Type == NodeType.Image)
+                {
+                    var image = (AtkImageNode*)node;
+                    if (image->PartsList is not null && image->PartId < image->PartsList->PartCount)
+                    {
+                        var asset = image->PartsList->Parts[image->PartId].UldAsset;
+                        if (asset is not null && asset->Id != 0)
+                            return asset->Id;
+                    }
+                }
+                else if (node->Type >= NodeType.Component)
+                {
+                    var component = ((AtkComponentNode*)node)->Component;
+                    if (component is not null && component->UldManager.NodeList is not null)
+                    {
+                        for (var i = 0; i < component->UldManager.NodeListCount; i++)
+                        {
+                            var found = Find(component->UldManager.NodeList[i]);
+                            if (found is not null)
+                                return found;
+                        }
+                    }
+                }
+
+                if (node->ChildNode is not null)
+                {
+                    var found = Find(node->ChildNode);
+                    if (found is not null)
+                        return found;
+                }
+
+                node = node->PrevSiblingNode;
+            }
+
+            return null;
         }
     }
 

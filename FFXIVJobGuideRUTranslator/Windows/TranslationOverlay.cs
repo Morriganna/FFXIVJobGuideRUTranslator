@@ -113,6 +113,12 @@ public static class TranslationOverlay
         // или неразрешённых записей null, тогда иконка/статы/подвал просто не рисуются.
         var hasStats = repository.ActionStatsById.TryGetValue(info.Entry.ActionId, out var stats);
 
+        // LiveIconId - реальный ID иконки, прочитанный прямо из ноды аддона (см.
+        // AbilityHoverWatcher.TryFindIconId) - точнее, чем вычисленный нами через Lumina, и не
+        // зависит от того, правильно ли ActionId разрешился (см. TranslationRepository). Откат на
+        // ActionStats, если найти в аддоне не удалось.
+        var iconId = info.LiveIconId ?? (hasStats ? stats.IconId : (uint?)null);
+
         var display = ImGui.GetIO().DisplaySize;
         var scale = GetScale(display);
 
@@ -166,7 +172,7 @@ public static class TranslationOverlay
             // берёт ещё большую ширину -> и так вразнос до края экрана).
             var wrapWidth = Math.Max(BaseWrapWidth * scale, MeasureFixedRowsWidth(info.Entry, hasStats ? stats : null, scale));
 
-            DrawHeader(info.Entry, hasStats ? stats : null, textureProvider, scale, wrapWidth);
+            DrawHeader(info.Entry, hasStats ? stats : null, iconId, textureProvider, scale, wrapWidth);
 
             if (hasStats)
                 DrawCastRecastRow(stats, scale);
@@ -228,12 +234,12 @@ public static class TranslationOverlay
     }
 
     /// <summary>Иконка + имя + классификация (слева) и Дальность/Радиус (справа) под именем.</summary>
-    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, ITextureProvider textureProvider, float scale, float wrapWidth)
+    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, uint? iconId, ITextureProvider textureProvider, float scale, float wrapWidth)
     {
-        if (stats is { } s)
+        if (stats is not null && iconId is { } id)
         {
             var iconSize = IconSize * scale;
-            var wrap = textureProvider.GetFromGameIcon(new GameIconLookup { IconId = s.IconId }).GetWrapOrEmpty();
+            var wrap = textureProvider.GetFromGameIcon(new GameIconLookup { IconId = id }).GetWrapOrEmpty();
             ImGui.Image(wrap.Handle, new Vector2(iconSize, iconSize));
             ImGui.SameLine();
         }
