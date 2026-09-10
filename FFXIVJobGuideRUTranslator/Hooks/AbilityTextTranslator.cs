@@ -40,7 +40,8 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
 
     private readonly HashSet<string> registeredAddonNames = new();
 
-    private readonly record struct NodeInfo(nint Address, short X, short Y, ushort Width, ushort Height, string? Text);
+    // X/Y на AtkResNode - float (позиция с учётом дробного скейла), а не short.
+    private readonly record struct NodeInfo(nint Address, float X, float Y, ushort Width, ushort Height, string? Text);
 
     public AbilityTextTranslator(
         IAddonLifecycle addonLifecycle,
@@ -237,7 +238,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             if (info.Y + 2 >= oldBottom)
             {
                 var otherNode = (AtkResNode*)info.Address;
-                otherNode->Y = (short)(otherNode->Y + delta);
+                otherNode->Y += delta;
             }
         }
     }
