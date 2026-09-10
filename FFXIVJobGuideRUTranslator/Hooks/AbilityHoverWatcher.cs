@@ -95,10 +95,12 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             return;
         }
 
+        // lastMousePos НЕ обновляем на каждый вызов - иначе точка отсчёта "ползла" бы вслед за
+        // курсором (сдвиг между соседними кадрами почти всегда меньше радиуса), и любое медленное
+        // движение засчитывалось бы как "стабильно" даже после того, как курсор давно ушёл с
+        // умения. Точка отсчёта фиксируется один раз - когда началось отслеживание этой записи.
         if (Vector2.DistanceSquared(mousePos, lastMousePos) <= MouseStableRadius * MouseStableRadius)
             lastSeenTicksMs = Environment.TickCount64;
-
-        lastMousePos = mousePos;
     }
 
     public AbilityHoverWatcher(
