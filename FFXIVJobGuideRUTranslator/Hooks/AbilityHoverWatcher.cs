@@ -44,8 +44,14 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     private readonly HashSet<string> registeredAddonNames = new();
 
-    /// <summary>Умение + экранные координаты и размер РОДНОГО окна, в котором оно показано - только чтение, координаты нужны, чтобы поставить перевод рядом, а не там, где сейчас курсор мыши (иначе в списках/панелях перевод оказывается где попало и перекрывает контент).</summary>
-    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height, NineGridInfo? Background);
+    /// <summary>
+    /// Умение + экранные координаты и размер РОДНОГО окна, в котором оно показано - только чтение,
+    /// координаты нужны, чтобы поставить перевод рядом, а не там, где сейчас курсор мыши (иначе в
+    /// списках/панелях перевод оказывается где попало и перекрывает контент). AddonId - для
+    /// AtkStage.Instance()->TooltipManager (см. Windows/NativeTooltipOverlay.cs): нативные
+    /// подсказки привязываются к id окна-владельца, а не к координатам.
+    /// </summary>
+    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height, NineGridInfo? Background, ushort AddonId);
 
     /// <summary>
     /// Ссылка на РЕАЛЬНУЮ текстуру фона родного окна (та же самая, что уже загружена и
@@ -223,7 +229,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                     background = nineGrid;
                 }
 
-                currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, background);
+                currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, background, addon->Id);
                 lastSeenTicksMs = Environment.TickCount64;
 
                 // Экспериментальный режим (см. Configuration.UseNativeTranslationWindow): прячем

@@ -20,10 +20,9 @@
     <EmbeddedResource Include="Data\SourceJson\**\*.json" />
   </ItemGroup>
 
-  <ItemGroup>
-    <!-- Для попытки заменить родную подсказку умения своим нативным окном (вместо ImGui-оверлея) -
-         см. Windows/TranslationOverlay.cs и историю правок. net10.0-windows7.0 у 2.2.39 совпадает
-         с тем, что требует Dalamud API 15 (см. Sdk выше) - конфликта версий быть не должно. -->
-    <PackageReference Include="KamiToolKit" Version="2.2.39" />
-  </ItemGroup>
+  <!-- Пакет KamiToolKit убран: попытка заменить родную подсказку умения собственным деревом нод
+       (OverlayController/OverlayNode/TextNode) не прижилась - перенос текста не работал как
+       нужно, видимость мигала. Заменено на нативный AtkStage.Instance()->TooltipManager из
+       FFXIVClientStructs (уже приходит транзитивно через сам Dalamud.NET.Sdk, отдельный пакет не
+       нужен) - см. Windows/NativeTooltipOverlay.cs. -->
 </Project>
