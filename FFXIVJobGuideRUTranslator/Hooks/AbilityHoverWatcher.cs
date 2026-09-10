@@ -198,6 +198,12 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         Scan((AtkResNode*)addon->RootNode);
         for (var i = 0; i < addon->UldManager.NodeListCount; i++)
             Scan(addon->UldManager.NodeList[i]);
+        // WindowNode - отдельное поле на самом AtkUnitBase (рамка/фон "стандартного" окна),
+        // не входит в обычное дерево RootNode/UldManager.NodeList - предыдущий поиск нашёл
+        // только тонкую декоративную полоску 32x4, значит настоящий фон, если он вообще
+        // текстура, а не просто заливка цветом, стоит поискать и здесь.
+        if (addon->WindowNode is not null)
+            Scan((AtkResNode*)addon->WindowNode);
 
         void Scan(AtkResNode* node)
         {
@@ -271,7 +277,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             isNineGrid ? asNineGrid->LeftOffset : 0,
             isNineGrid ? asNineGrid->RightOffset : 0);
 
-        var successReason = $"OK: nodeType={best->Type} area={bestArea} texture {texture->ActualWidth}x{texture->ActualHeight}, " +
+        var successReason = $"OK: nodeType={best->Type} area={bestArea} (candidates NineGrid={nineGridCount} Image={imageCount}) texture {texture->ActualWidth}x{texture->ActualHeight}, " +
                              $"sprite U={part->U} V={part->V} W={part->Width} H={part->Height}, " +
                              $"offsets T={(isNineGrid ? asNineGrid->TopOffset : 0)} B={(isNineGrid ? asNineGrid->BottomOffset : 0)} " +
                              $"L={(isNineGrid ? asNineGrid->LeftOffset : 0)} R={(isNineGrid ? asNineGrid->RightOffset : 0)}";
