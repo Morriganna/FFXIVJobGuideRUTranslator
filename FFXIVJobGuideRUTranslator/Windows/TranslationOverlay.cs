@@ -265,7 +265,7 @@ public static class TranslationOverlay
     {
         var iconSize = IconSize * scale;
         var wrap = textureProvider.GetFromGameIcon(new GameIconLookup { IconId = stats.IconId }).GetWrapOrEmpty();
-        ImGui.Image(wrap.ImGuiHandle, new Vector2(iconSize, iconSize));
+        ImGui.Image(wrap.Handle, new Vector2(iconSize, iconSize));
 
         ImGui.SameLine();
         ImGui.BeginGroup();
