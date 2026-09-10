@@ -27,6 +27,7 @@ public sealed class Plugin : IDalamudPlugin
     // IClientState.LocalPlayer признан устаревшим начиная с API 14 (см. changelog Dalamud v14) -
     // для чтения атрибутов текущего персонажа (в т.ч. работы) правильный сервис теперь IPlayerState.
     [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
+    [PluginService] internal static IFramework Framework { get; private set; } = null!;
 
     private const string CommandName = "/jgru";
 
@@ -43,11 +44,14 @@ public sealed class Plugin : IDalamudPlugin
     private readonly string overrideDirectory;
 
     // Экспериментальный нативный оверлей (см. Configuration.UseNativeTranslationWindow) - создаётся
-    // всегда (недорого, пока не видим), но реально показывается только пока тумблер включён;
-    // AddNode/RemoveAllNodes должны звонить строго из главного потока игры, как и конструктор
-    // Plugin - см. доки KamiToolKit.
-    private readonly OverlayController overlayController;
-    private readonly NativeTranslationOverlayNode nativeOverlayNode;
+    // всегда (недорого, пока не видим), но реально показывается только пока тумблер включён.
+    // OverlayController (и вообще любые ноды KamiToolKit) можно создавать ТОЛЬКО в главном потоке
+    // игры - а конструктор Plugin вызывается Dalamud'ом асинхронно, НЕ в главном потоке (см. стек
+    // "Not on main thread!" из истории правок), поэтому создаём их не прямо тут, а через
+    // Framework.RunOnFrameworkThread ниже. До завершения этой задачи (доли секунды) оба поля
+    // null - методы, которые их используют (Dispose), это учитывают.
+    private OverlayController? overlayController;
+    private NativeTranslationOverlayNode? nativeOverlayNode;
 
     public Plugin()
     {
@@ -61,9 +65,18 @@ public sealed class Plugin : IDalamudPlugin
 
         hoverWatcher = new AbilityHoverWatcher(AddonLifecycle, GameGui, Log, Configuration, Repository);
 
-        overlayController = new OverlayController();
-        nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow);
-        overlayController.AddNode(nativeOverlayNode);
+        // Fire-and-forget: см. комментарий у полей overlayController/nativeOverlayNode - должны
+        // создаваться строго в главном потоке игры, поэтому не прямо здесь.
+        Framework.RunOnFrameworkThread(() =>
+        {
+            overlayController = new OverlayController();
+            nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow);
+            overlayController.AddNode(nativeOverlayNode);
+        }).ContinueWith(t =>
+        {
+            if (t.Exception is not null)
+                Log.Error(t.Exception, "[JobGuideRU] Не удалось создать нативный оверлей (KamiToolKit) - переключатель \"нативное окно\" в /jgru не будет работать.");
+        }, TaskContinuationOptions.OnlyOnFaulted);
 
         ConfigWindow = new ConfigWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
@@ -90,7 +103,7 @@ public sealed class Plugin : IDalamudPlugin
         hoverWatcher?.Dispose();
         hoverWatcher = null;
 
-        overlayController.Dispose();
+        overlayController?.Dispose();
 
         CommandManager.RemoveHandler(CommandName);
     }
