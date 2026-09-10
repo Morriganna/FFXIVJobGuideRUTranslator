@@ -34,29 +34,29 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     public readonly record struct HoverInfo(TranslationEntry Entry);
 
-    // Для панели вроде "Actions & Traits" - там нет HoveredAction, поэтому умение опознаётся по
-    // тексту ноды в PreDraw и хранится недолго (аддон не перерисовывается каждый кадр, см.
-    // PanelStaleAfterMs). Для хотбара кэш не нужен вообще - см. Current.
-    private TranslationEntry? panelEntry;
-    private long panelSeenTicksMs;
-    private const long PanelStaleAfterMs = 500;
+    // IGameGui.HoveredAction, вопреки документации Dalamud, на практике НЕ сбрасывается в 0, когда
+    // курсор уходит в пустое место - держит последнее значение, пока не наведёшь на что-то новое
+    // (проверено на живом клиенте). Поэтому его нельзя использовать как самостоятельный признак
+    // "наведено прямо сейчас" - единственный надёжный сигнал "аддон ещё релевантен" - то, что игра
+    // продолжает вызывать для него PreDraw с IsVisible = true (см. ProcessAddon). currentValue
+    // обновляется только оттуда и протухает, если PreDraw не подтверждал совпадение уже StaleAfterMs.
+    private HoverInfo? currentValue;
+    private long lastSeenTicksMs;
 
-    /// <summary>
-    /// Умение с переводом, наведённое прямо сейчас, или null. Для хотбара каждый раз читает
-    /// живое состояние игры (IGameGui.HoveredAction) - никакого кэша/протухания, поэтому исчезает
-    /// ровно в тот кадр, когда курсор реально уходит с умения.
-    /// </summary>
+    // Сам аддон не перерисовывается каждый кадр, даже пока курсор неподвижно стоит на умении -
+    // окно на этот случай, чтобы подсказка не гасла между такими перерисовками.
+    private const long StaleAfterMs = 600;
+
+    /// <summary>Умение с переводом, наведённое прямо сейчас, или null.</summary>
     public HoverInfo? Current
     {
         get
         {
-            if (TryGetHoveredEntry(out var hoveredEntry))
-                return new HoverInfo(hoveredEntry);
+            var value = currentValue;
+            if (value is null)
+                return null;
 
-            if (panelEntry is not null && Environment.TickCount64 - panelSeenTicksMs <= PanelStaleAfterMs)
-                return new HoverInfo(panelEntry);
-
-            return null;
+            return Environment.TickCount64 - lastSeenTicksMs <= StaleAfterMs ? value : null;
         }
     }
 
@@ -135,27 +135,34 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             if (addon is null || !addon->IsVisible)
                 return;
 
-            // Хотбар - прямой сигнал уже есть (TryGetHoveredEntry), тут только прячем родное окно.
-            if (TryGetHoveredEntry(out _))
+            TranslationEntry? entry = null;
+
+            // Хотбар - точный ActionId через IGameGui.HoveredAction.
+            if (TryGetHoveredEntry(out var hoveredEntry))
+                entry = hoveredEntry;
+
+            if (entry is null)
             {
-                addon->IsVisible = false;
-                return;
+                // Панель вроде "Actions & Traits" - ищем ноду с известным названием умения.
+                foreach (var text in EnumerateTextNodes(addon))
+                {
+                    if (string.IsNullOrWhiteSpace(text))
+                        continue;
+                    if (!repository.TryGetByEnglishName(text, out var byName) || byName.Count == 0 || string.IsNullOrEmpty(byName[0].Content))
+                        continue;
+                    if (ExcludedAbilityNames.Contains(byName[0].EnglishName))
+                        continue;
+
+                    entry = byName[0];
+                    break;
+                }
             }
 
-            // Панель вроде "Actions & Traits" - ищем ноду с известным названием умения.
-            foreach (var text in EnumerateTextNodes(addon))
+            if (entry is not null)
             {
-                if (string.IsNullOrWhiteSpace(text))
-                    continue;
-                if (!repository.TryGetByEnglishName(text, out var byName) || byName.Count == 0 || string.IsNullOrEmpty(byName[0].Content))
-                    continue;
-                if (ExcludedAbilityNames.Contains(byName[0].EnglishName))
-                    continue;
-
-                panelEntry = byName[0];
-                panelSeenTicksMs = Environment.TickCount64;
+                currentValue = new HoverInfo(entry);
+                lastSeenTicksMs = Environment.TickCount64;
                 addon->IsVisible = false;
-                return;
             }
         }
         catch (Exception ex)

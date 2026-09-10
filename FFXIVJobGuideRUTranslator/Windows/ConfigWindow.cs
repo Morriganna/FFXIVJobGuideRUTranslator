@@ -12,7 +12,6 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 public class ConfigWindow : Window, IDisposable
 {
     private readonly Plugin plugin;
-    private string newAddonName = string.Empty;
 
     // Состояние вкладки "Debug: умения" - живёт, пока открыто окно, специально не сохраняется.
     private List<JobActionDumpRow> debugRows = new();
@@ -54,51 +53,12 @@ public class ConfigWindow : Window, IDisposable
         var configuration = plugin.Configuration;
 
         var enabled = configuration.Enabled;
-        if (ImGui.Checkbox("Плагин включён", ref enabled))
+        if (ImGui.Checkbox("Переводить умения", ref enabled))
         {
             configuration.Enabled = enabled;
             configuration.Save();
         }
-
-        ImGui.Separator();
-        ImGui.TextUnformatted("Список аддонов, где разрешена подмена текста:");
-        ImGui.TextWrapped("Проверьте актуальные имена через /xldata -> Addon Inspector, если что-то не работает.");
-
-        var toRemoveIndex = -1;
-        for (var i = 0; i < configuration.TargetAddonNames.Count; i++)
-        {
-            ImGui.Bullet();
-            ImGui.SameLine();
-            ImGui.TextUnformatted(configuration.TargetAddonNames[i]);
-            ImGui.SameLine();
-            // ID кнопки по индексу, не по имени - иначе задублированные записи путаются между собой.
-            if (ImGui.SmallButton($"Убрать###remove_{i}"))
-                toRemoveIndex = i;
-        }
-
-        if (toRemoveIndex >= 0)
-        {
-            configuration.TargetAddonNames.RemoveAt(toRemoveIndex);
-            configuration.Save();
-            plugin.ApplyAddonRegistrations();
-        }
-
-        ImGui.SetNextItemWidth(200);
-        ImGui.InputText("##newAddonName", ref newAddonName, 64);
-        ImGui.SameLine();
-        if (ImGui.Button("Добавить аддон"))
-        {
-            var trimmed = newAddonName.Trim();
-            if (!string.IsNullOrEmpty(trimmed) &&
-                !configuration.TargetAddonNames.Contains(trimmed, StringComparer.OrdinalIgnoreCase))
-            {
-                configuration.TargetAddonNames.Add(trimmed);
-                configuration.Save();
-                plugin.ApplyAddonRegistrations();
-            }
-
-            newAddonName = string.Empty;
-        }
+        ImGui.TextWrapped("Заменяет только текст описания умения в подсказке на хотбаре и в панели \"Actions & Traits\" - название умения и остальной интерфейс не трогает.");
 
         ImGui.Separator();
         ImGui.TextUnformatted($"Загружено записей перевода: {plugin.Repository.TotalParsed}");

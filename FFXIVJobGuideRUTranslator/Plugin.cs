@@ -87,8 +87,6 @@ public sealed class Plugin : IDalamudPlugin
         TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
     }
 
-    public void ApplyAddonRegistrations() => hoverWatcher?.ApplyRegistrations();
-
     /// <summary>Дамп умений текущей работы персонажа для вкладки "Debug" окна настроек - см. JobActionDump.</summary>
     public List<JobActionDumpRow> BuildJobActionDump(out string? jobAbbreviation)
         => JobActionDump.BuildForCurrentJob(DataManager, PlayerState, Repository, Log, out jobAbbreviation);
