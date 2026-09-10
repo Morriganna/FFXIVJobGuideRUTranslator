@@ -247,7 +247,13 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         if (background is not null)
         {
             var backgroundNode = (AtkResNode*)background.Value.Address;
-            backgroundNode->Height = (ushort)(backgroundNode->Height + delta);
+            // Height - ushort (беззнаковый!). Если delta отрицательна и по модулю больше текущей
+            // высоты, backgroundNode->Height + delta уходит в минус, а приведение к ushort не
+            // даёт отрицательное число - оно переполняется в огромное (например, -30 -> 65506),
+            // из-за чего контент внутри окна обрезается по этой чудовищной высоте и пропадает.
+            // Считаем в int и жёстко ограничиваем снизу, прежде чем приводить обратно к ushort.
+            var newBackgroundHeight = Math.Clamp(backgroundNode->Height + delta, 1, ushort.MaxValue);
+            backgroundNode->Height = (ushort)newBackgroundHeight;
         }
 
         foreach (var info in allNodes)
