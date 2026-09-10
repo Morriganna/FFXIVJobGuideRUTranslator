@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
-using System.Text;
+using System.Text.Json;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.Windowing;
 using FFXIVJobGuideRUTranslator.Data;
@@ -88,11 +88,11 @@ public class ConfigWindow : Window, IDisposable
     private void DrawDebugTab()
     {
         ImGui.TextWrapped(
-            "Список умений, УНИКАЛЬНЫХ для текущей работы персонажа (вкладки \"Job\" в Actions&Traits " +
-            "и в PvP Actions), и статус их сопоставления с переводом. Общие Role-умения (на несколько " +
-            "работ одной роли, обычный или PvP) и Quick Chat намеренно не включены. Нужно быть в игре " +
-            "персонажем - список строится по вашей активной работе на момент нажатия \"Сканировать\". " +
-            "Крафт/сбор (CraftAction) сюда пока не входят.");
+            "Список умений, доступных текущей работе персонажа - и уникальных для неё (вкладка \"Job\" " +
+            "в Actions&Traits/PvP Actions), и общих на несколько работ одной роли (вкладка \"Role\" в " +
+            "обеих секциях, группы \"Role\"/\"PvP Role\"), и статус их сопоставления с переводом. Quick " +
+            "Chat не включён. Нужно быть в игре персонажем - список строится по вашей активной работе " +
+            "на момент нажатия \"Сканировать\". Крафт/сбор (CraftAction) сюда пока не входят.");
 
         ImGui.Spacing();
 
@@ -127,8 +127,8 @@ public class ConfigWindow : Window, IDisposable
         ImGui.TextUnformatted($"Работа: {debugJobAbbreviation} - всего умений: {debugRows.Count}, сопоставлено: {debugRows.Count(r => r.IsResolved)}, показано: {visibleRows.Count}");
 
         ImGui.SameLine();
-        if (ImGui.SmallButton("Скопировать список в буфер"))
-            ImGui.SetClipboardText(BuildClipboardText(visibleRows));
+        if (ImGui.SmallButton("Скопировать JSON (имя+id)"))
+            ImGui.SetClipboardText(BuildClipboardJson(visibleRows));
 
         if (visibleRows.Count == 0)
         {
@@ -179,16 +179,12 @@ public class ConfigWindow : Window, IDisposable
         }
     }
 
-    private static string BuildClipboardText(IReadOnlyList<JobActionDumpRow> rows)
+    // Только name+id - для отправки в источник перевода (FFXIVJobGuideRU), чтобы проставить
+    // недостающие "id" в DB/*.json (см. TranslationRepository - без id резолвинг только по имени,
+    // а одинаковые имена у умений игрока и NPC/монстров иногда путаются).
+    private static string BuildClipboardJson(IReadOnlyList<JobActionDumpRow> rows)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine("ActionId\tName\tGroup\tResolved\tTranslation");
-        foreach (var row in rows)
-        {
-            var preview = row.RussianPreview?.Replace('\t', ' ').Replace('\n', ' ') ?? string.Empty;
-            sb.AppendLine($"{row.ActionId}\t{row.EnglishName}\t{row.Group}\t{(row.IsResolved ? "yes" : "no")}\t{preview}");
-        }
-
-        return sb.ToString();
+        var items = rows.Select(r => new { name = r.EnglishName, id = r.ActionId });
+        return JsonSerializer.Serialize(items, new JsonSerializerOptions { WriteIndented = true });
     }
 }

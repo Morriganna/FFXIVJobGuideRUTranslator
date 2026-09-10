@@ -13,7 +13,7 @@ public sealed class JobActionDumpRow
     public required uint ActionId { get; init; }
     public required string EnglishName { get; init; }
 
-    /// <summary>"Обычный класс" или "PvP" - см. <see cref="JobActionDump.GroupPve"/>/<see cref="JobActionDump.GroupPvp"/>.</summary>
+    /// <summary>"Обычный класс"/"PvP" (уникальные для работы) или "Role"/"PvP Role" (общие на несколько работ одной роли) - см. константы Group* в <see cref="JobActionDump"/>.</summary>
     public required string Group { get; init; }
 
     public required bool IsResolved { get; init; }
@@ -21,13 +21,13 @@ public sealed class JobActionDumpRow
 }
 
 /// <summary>
-/// Дебаг-утилита (окно /jgru -> вкладка "Debug: умения"): собирает список боевых умений
-/// (лист Action), УНИКАЛЬНЫХ для работы, на которой сейчас находится персонаж - то есть именно
-/// то, что в игре показано во вкладке "Job" окна Actions&amp;Traits (обычный класс) и во вкладке
-/// "Job" раздела PvP Actions, а НЕ общие для нескольких работ одной роли умения (вкладка "Role" в
-/// обеих секциях) и не Quick Chat. "Уникальность" определяем по ClassJobCategory: если в её
-/// bool-флагах по работам (см. CategoryIncludesJob) истинна РОВНО одна работа - и это наша, значит
-/// умение принадлежит только этой работе, а не общей Role-категории на несколько работ.
+/// Дебаг-утилита (окно /jgru -> вкладка "Debug: умения"): собирает список боевых умений (лист
+/// Action), доступных работе, на которой сейчас находится персонаж - и уникальных для неё (вкладка
+/// "Job" окна Actions&amp;Traits/PvP Actions), и общих на несколько работ одной роли (вкладка
+/// "Role" в обеих секциях). Quick Chat не включён - те умения вообще не привязаны к ClassJobCategory
+/// (ClassJobCategory.RowId == 0), фильтруются этим же образом. "Уникальность" определяем по
+/// ClassJobCategory: если в её bool-флагах по работам (см. CategoryIncludesJob) истинна РОВНО одна
+/// работа - и это наша, значит умение принадлежит только этой работе, иначе это Role-умение.
 ///
 /// Крафт/сбор (CraftAction) сюда намеренно не включены - у них другая, менее очевидная привязка
 /// к работе (не через ClassJobCategory), это не проверялось на живом клиенте (см. README).
@@ -36,6 +36,8 @@ public static class JobActionDump
 {
     public const string GroupPve = "Обычный класс";
     public const string GroupPvp = "PvP";
+    public const string GroupRole = "Role";
+    public const string GroupRolePvp = "PvP Role";
 
     // Все актуальные трёхбуквенные коды работ/базовых классов (боевые + DoH/DoL - последние тут
     // не помешают, для Action они всё равно не будут true, зато не собьют подсчёт "сколько работ
@@ -112,17 +114,20 @@ public static class JobActionDump
                     continue;
 
                 if (row.ClassJobCategory.RowId == 0)
-                    continue; // не привязано к конкретной работе (системное/неигровое умение)
+                    continue; // не привязано к конкретной работе (системное/неигровое умение, Quick Chat)
 
                 var category = row.ClassJobCategory.Value;
-                if (!IsUniqueToJob(category, abbreviation))
-                    continue; // общая Role-категория на несколько работ (или чужая работа) - не то, что просил пользователь
+                if (!CategoryIncludesJob(category, abbreviation))
+                    continue; // этой работе умение вообще не доступно
 
                 // IsPvP - как и ClassJobCategory, обычное bool-поле листа Action в текущих версиях
                 // Lumina; используется, чтобы отделить обычный класс от вкладки PvP Actions.
-                // Если поля вдруг не окажется в вашей версии - просто всё попадёт в "Обычный класс".
+                // Если поля вдруг не окажется в вашей версии - просто всё попадёт в "Обычный класс"/"Role".
                 var isPvp = TryGetBoolProperty(row, "IsPvP");
-                var group = isPvp ? GroupPvp : GroupPve;
+                var isUnique = IsUniqueToJob(category, abbreviation);
+                var group = isUnique
+                    ? (isPvp ? GroupPvp : GroupPve)
+                    : (isPvp ? GroupRolePvp : GroupRole);
 
                 var isResolved = repository.TryGetByActionId(row.RowId, out var entries);
                 result.Add(new JobActionDumpRow
@@ -141,9 +146,18 @@ public static class JobActionDump
         }
 
         return result
-            .OrderBy(r => r.Group == GroupPvp) // сначала обычный класс, потом PvP
+            .OrderBy(r => GroupOrder(r.Group))
             .ThenBy(r => r.ActionId)
             .ToList();
+
+        static int GroupOrder(string group) => group switch
+        {
+            GroupPve => 0,
+            GroupRole => 1,
+            GroupPvp => 2,
+            GroupRolePvp => 3,
+            _ => 4,
+        };
     }
 
     /// <summary>
