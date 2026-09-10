@@ -42,19 +42,26 @@ public static class TranslationOverlay
     // остаётся единственным "фоновым" цветом, акцент - для всего структурно важного разом.
     private static readonly Vector4 AccentColor = new(0.62f, 0.85f, 0.55f, 1f); // зелёный, как "Duration:" в оригинале
 
-    // Строки, которые в оригинале целиком зелёные (не только первое слово-метка) - Duration,
-    // Additional Effect, комбо-статы, стоимость шкалы и т.п. Название умения/статуса внутри такой
-    // строки (если есть) всё равно вырезается и красится отдельным, оранжевым цветом - см. Tokenize.
+    // Строки, которые в оригинале целиком зелёные (не только первое слово-метка) - Additional
+    // Effect, комбо-статы и т.п. Название умения/статуса внутри такой строки (если есть) всё
+    // равно вырезается и красится отдельным, оранжевым цветом - см. Tokenize.
     private static readonly string[] FullyAccentedLinePrefixes =
     {
-        "Продолжительность",
-        "Длительность",
         "Дополнительные эффекты",
         "Дополнительный эффект",
         "Комбо умение",
         "Комбо-действие",
         "Комбо бонус",
         "Бонус комбо",
+    };
+
+    // "Duration:"/"Продолжительность:" - зелёное только само слово-метка (+ двоеточие), само
+    // значение времени после него - обычным белым текстом, в отличие от Additional Effect и
+    // остальных FullyAccentedLinePrefixes, где зелёная вся строка целиком.
+    private static readonly string[] LabelOnlyAccentPrefixes =
+    {
+        "Продолжительность",
+        "Длительность",
     };
 
     // Составные метки вида "Эффект <Название статуса>:" (например "Эффект Knight's Resolve:",
@@ -233,31 +240,45 @@ public static class TranslationOverlay
     /// </summary>
     private static void DrawLine(string line)
     {
-        var isUniformAccent = false;
-        foreach (var prefix in UniformAccentLinePrefixes)
-        {
-            if (!line.StartsWith(prefix, StringComparison.Ordinal))
-                continue;
-            isUniformAccent = true;
-            break;
-        }
+        List<Token> tokens;
 
-        var isFullyAccented = isUniformAccent || EffectOfNamedStatusRegex.IsMatch(line);
-        if (!isFullyAccented)
+        // "Duration:"/"Продолжительность:" - зелёная только метка, значение времени после неё -
+        // обычным белым (в отличие от Additional Effect и комбо-строк, где зелёная вся строка).
+        var labelOnlyMatch = FindLabelOnlyPrefix(line);
+        if (labelOnlyMatch is not null)
         {
-            foreach (var prefix in FullyAccentedLinePrefixes)
+            tokens = new List<Token> { new(labelOnlyMatch + ":", AccentColor), new(" ", BodyColor) };
+            var rest = line[(labelOnlyMatch.Length + 1)..].TrimStart();
+            tokens.AddRange(Tokenize(rest, BodyColor));
+        }
+        else
+        {
+            var isUniformAccent = false;
+            foreach (var prefix in UniformAccentLinePrefixes)
             {
                 if (!line.StartsWith(prefix, StringComparison.Ordinal))
                     continue;
-                isFullyAccented = true;
+                isUniformAccent = true;
                 break;
             }
-        }
 
-        var defaultColor = isFullyAccented ? AccentColor : BodyColor;
-        // В "Сила .../Стоимость ..." строках название - часть составной метки, а не отдельно
-        // упомянутая вещь, поэтому его не вырезаем отдельным цветом - вся строка одного цвета.
-        var tokens = Tokenize(line, defaultColor, highlightNames: !isUniformAccent);
+            var isFullyAccented = isUniformAccent || EffectOfNamedStatusRegex.IsMatch(line);
+            if (!isFullyAccented)
+            {
+                foreach (var prefix in FullyAccentedLinePrefixes)
+                {
+                    if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                        continue;
+                    isFullyAccented = true;
+                    break;
+                }
+            }
+
+            var defaultColor = isFullyAccented ? AccentColor : BodyColor;
+            // В "Сила .../Стоимость ..." строках название - часть составной метки, а не отдельно
+            // упомянутая вещь, поэтому его не вырезаем отдельным цветом - вся строка одного цвета.
+            tokens = Tokenize(line, defaultColor, highlightNames: !isUniformAccent);
+        }
 
         var cursorX = 0f;
         var atLineStart = true;
@@ -297,6 +318,21 @@ public static class TranslationOverlay
 
         if (atLineStart)
             ImGui.NewLine(); // строка не дала ни одного видимого токена (пустая строка в оригинале) - просто переходим дальше
+    }
+
+    /// <summary>Возвращает совпавший префикс из LabelOnlyAccentPrefixes, если строка начинается с него и сразу за ним идёт двоеточие.</summary>
+    private static string? FindLabelOnlyPrefix(string line)
+    {
+        foreach (var prefix in LabelOnlyAccentPrefixes)
+        {
+            if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+            var afterPrefix = line.Length > prefix.Length ? line[prefix.Length] : '\0';
+            if (afterPrefix == ':')
+                return prefix;
+        }
+
+        return null;
     }
 
     /// <summary>
