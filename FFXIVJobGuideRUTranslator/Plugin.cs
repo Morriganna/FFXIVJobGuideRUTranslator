@@ -26,6 +26,9 @@ public sealed class Plugin : IDalamudPlugin
     // IClientState.LocalPlayer признан устаревшим начиная с API 14 (см. changelog Dalamud v14) -
     // для чтения атрибутов текущего персонажа (в т.ч. работы) правильный сервис теперь IPlayerState.
     [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
+    // Иконка умения в TranslationOverlay (см. ActionStatsLookup) - грузится через готовый сервис
+    // Dalamud, а не напрямую из файлов игры.
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
 
     private const string CommandName = "/jgru";
 
@@ -106,7 +109,7 @@ public sealed class Plugin : IDalamudPlugin
         NativeTooltipOverlay.Draw(hoverWatcher?.Current, Configuration.UseNativeTranslationWindow, Log);
 
         if (!Configuration.UseNativeTranslationWindow)
-            TranslationOverlay.Draw(hoverWatcher?.Current);
+            TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
     }
 
     public void ApplyAddonRegistrations() => hoverWatcher?.ApplyRegistrations();

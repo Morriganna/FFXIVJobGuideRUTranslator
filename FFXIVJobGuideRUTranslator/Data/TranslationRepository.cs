@@ -39,6 +39,9 @@ public sealed class TranslationRepository
     public int TotalResolved { get; private set; }
     public DateTime LoadedAtUtc { get; private set; }
 
+    /// <summary>ActionId -> доп. статы (иконка/каст/дальность и т.п.) из листа Action - см. ActionStatsLookup/TranslationOverlay.</summary>
+    public IReadOnlyDictionary<uint, ActionStats> ActionStatsById { get; private set; } = new Dictionary<uint, ActionStats>();
+
     public TranslationRepository(IDataManager dataManager, IPluginLog log, string overrideDirectory)
     {
         this.dataManager = dataManager;
@@ -107,6 +110,13 @@ public sealed class TranslationRepository
             list.Add(entry);
         }
 
+        // Строим один раз за перезагрузку - используется и для показа доп. статов (иконка/каст/
+        // дальность и т.п., см. TranslationOverlay), и ниже как проверка принадлежности id именно
+        // листу Action (у CraftAction/Gathering/Fisher своя, отдельная нумерация ID - те же числа
+        // МОГУТ случайно совпасть с чужим RowId листа Action, поэтому просто "ID нашёлся в
+        // словаре" не значит "это боевое умение", если это не проверить заранее).
+        ActionStatsById = ActionStatsLookup.BuildAll(dataManager, log);
+
         // Сначала - записи, где ActionId уже пришёл прямо из исходного JSON (SourceActionId,
         // см. RawSourceParsing/TranslationEntry) - это надёжнее сопоставления по имени, поэтому
         // для них поиск по листам Action/CraftAction ниже просто пропускается (см. IsResolved
@@ -118,7 +128,10 @@ public sealed class TranslationRepository
                 continue;
 
             entry.ActionId = sourceId;
-            entry.ResolvedSheet = "id (источник)";
+            // "Action" только если ID точно существует в этом листе - иначе нейтральная метка,
+            // чтобы TranslationOverlay не показал доп. статы боевого умения для крафта/сбора по
+            // случайно совпавшему номеру ID из другого листа (см. комментарий выше).
+            entry.ResolvedSheet = ActionStatsById.ContainsKey(sourceId) ? "Action" : "id (источник)";
             resolvedById++;
         }
 

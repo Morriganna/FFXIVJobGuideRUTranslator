@@ -43,7 +43,9 @@ public static class JobActionDump
     // (новые коды добавляются, старые не переименовываются), в отличие от точных имён C#-свойств
     // Lumina, поэтому не полагаемся тут на рефлексию списка целиком - только на поиск конкретного
     // свойства по имени (см. CategoryIncludesJob).
-    private static readonly string[] AllJobAbbreviations =
+    // internal, не private - переиспользуется ActionStatsLookup (Affinity: тот же список кодов и
+    // тот же способ чтения bool-флагов ClassJobCategory через рефлексию, см. CategoryIncludesJob).
+    internal static readonly string[] AllJobAbbreviations =
     {
         // Tank
         "GLA", "PLD", "MRD", "WAR", "DRK", "GNB",
@@ -173,7 +175,7 @@ public static class JobActionDump
     /// напрямую по имени свойства - структура строки генерируется Lumina и может отличаться
     /// между версиями API; если свойство не нашлось, считаем, что работа не отмечена.
     /// </summary>
-    private static bool CategoryIncludesJob<TCategory>(TCategory category, string jobAbbreviation)
+    internal static bool CategoryIncludesJob<TCategory>(TCategory category, string jobAbbreviation)
         where TCategory : struct
     {
         var property = typeof(TCategory).GetProperty(jobAbbreviation, BindingFlags.Public | BindingFlags.Instance);

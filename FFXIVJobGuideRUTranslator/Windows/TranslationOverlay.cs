@@ -5,6 +5,9 @@ using System.Text.RegularExpressions;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Interface.GameFonts;
 using Dalamud.Interface.ManagedFontAtlas;
+using Dalamud.Interface.Textures;
+using Dalamud.Plugin.Services;
+using FFXIVJobGuideRUTranslator.Data;
 using FFXIVJobGuideRUTranslator.Hooks;
 
 namespace FFXIVJobGuideRUTranslator.Windows;
@@ -18,18 +21,18 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// описания - иконка, статы (Cast/Recast/Range/Radius), Acquired/Affinity остаются в родном окне
 /// как есть, это окно их не дублирует и не подменяет, а просто становится рядом.
 ///
-/// По внешнему виду - НЕ попытка притвориться родным окном (см. историю правок: пробовали красть
-/// настоящую текстуру фона через AbilityHoverWatcher.TryGetBackgroundNineGrid, но для ActionDetail
-/// подходящей ноды-текстуры почти никогда не находится - похоже, фон там рисуется заливкой ниже
-/// уровня нод, а не текстурой). Вместо имитации - осознанно "своя" плашка: тёмная полупрозрачная
-/// карточка с цветной полоской слева и подписью JOBGUIDERU сверху, явно другого цвета, чем сама
-/// игра - чтобы на экране сразу было видно, что это добавка плагина, а не часть родного UI.
-/// Настоящий игровой шрифт (Axis через Dalamud GameFontStyle) и та же подсветка меток ("Duration:"
-/// зелёным, "Additional Effect:"/"Cure Potency:" золотым/голубым) И названий умений/статусов ПРЯМО
-/// ВНУТРИ предложения (они остаются на английском в переводе - оригинал их не переводит, как и мы)
-/// - сохранены, это часть самого текста, а не имитация окна. Перенос строк реализован вручную, по
-/// словам (а не через PushTextWrapPos) - иначе разноцветные куски одного абзаца "залипают" на
-/// отступе первого куска при переносе (см. историю правок).
+/// Оформление - по макету "Ability Inspector" (Claude Design, см. историю правок): НЕ попытка
+/// притвориться родным окном игры (более ранний вариант пробовал красть настоящую текстуру фона
+/// через AbilityHoverWatcher, но для ActionDetail подходящей ноды-текстуры почти никогда не
+/// находилось), а осознанно "инструмент разработчика" - почти чёрный фон, тонкая серая рамка,
+/// острые углы без скругления, настоящий заголовок окна (название умения) на цветной плашке -
+/// сразу видно, что это окно плагина, а не часть родного UI. Настоящий игровой шрифт (Axis через
+/// Dalamud GameFontStyle) и подсветка меток ("Duration:" зелёным, "Additional Effect:"/"Cure
+/// Potency:" золотым/голубым) И названий умений/статусов ПРЯМО ВНУТРИ предложения (они остаются на
+/// английском в переводе - оригинал их не переводит, как и мы) - часть самого текста, не оформления
+/// окна. Перенос строк реализован вручную, по словам (а не через PushTextWrapPos) - иначе
+/// разноцветные куски одного абзаца "залипают" на отступе первого куска при переносе (см. историю
+/// правок).
 /// </summary>
 public static class TranslationOverlay
 {
@@ -97,14 +100,15 @@ public static class TranslationOverlay
         new(@"^Эффект\s+[A-Z][a-zA-Z']*(?:\s+[A-Z][a-zA-Z']*)*:", RegexOptions.Compiled);
 
     private static readonly Vector4 BodyColor = new(0.90f, 0.90f, 0.92f, 1f);
-    private static readonly Vector4 SeparatorColor = new(0.5f, 0.5f, 0.54f, 0.45f);
 
-    // Оформление карточки (не родной игры - см. доккомментарий класса).
-    private static readonly Vector4 NoteBg = new(0.094f, 0.125f, 0.149f, 0.94f);
-    private static readonly Vector4 NoteBorder = new(0.22f, 0.35f, 0.40f, 0.9f);
-    private static readonly Vector4 NoteAccent = new(0.357f, 0.561f, 0.659f, 1f);
-    private const float AccentStripeWidth = 3f;
-    private const string TagText = "JOBGUIDERU · ПЕРЕВОД";
+    // Оформление окна - по макету "Ability Inspector" (см. доккомментарий класса).
+    private static readonly Vector4 WindowBgColor = new(0.059f, 0.059f, 0.059f, 0.96f); // #0f0f0f
+    private static readonly Vector4 BorderColor = new(0.239f, 0.239f, 0.239f, 1f); // #3d3d3d
+    private static readonly Vector4 SeparatorColor = new(0.227f, 0.227f, 0.227f, 1f); // #3a3a3a
+    private static readonly Vector4 TitleBgColor = new(0.082f, 0.227f, 0.388f, 1f); // #153a63
+    private static readonly Vector4 LabelColor = new(0.616f, 0.616f, 0.616f, 1f); // #9d9d9d, классификация
+    private static readonly Vector4 FooterColor = new(0.435f, 0.435f, 0.435f, 1f); // #6f6f6f, подпись внизу
+    private const string FooterTag = "JobGuideRU · перевод";
     // Названия умений/статусов, упомянутые внутри предложения ("Holy Spirit", "Confiteor" и т.п.) -
     // в оригинале это ДРУГОЙ цвет, оранжевый, отдельно от зелёных меток (Duration/Additional Effect).
     private static readonly Vector4 NameHighlightColor = new(0.90f, 0.62f, 0.32f, 1f);
@@ -156,12 +160,16 @@ public static class TranslationOverlay
     }
 
     /// <summary>Рисует оверлей, если hover не null. Вызывать из UiBuilder.Draw.</summary>
-    public static void Draw(AbilityHoverWatcher.HoverInfo? hover)
+    public static void Draw(AbilityHoverWatcher.HoverInfo? hover, TranslationRepository repository, ITextureProvider textureProvider)
     {
         if (hover is null || string.IsNullOrEmpty(hover.Value.Entry.Content))
             return;
 
         var info = hover.Value;
+        // Есть, только если ActionId точно принадлежит листу Action (боевое умение) - см.
+        // TranslationRepository.ActionStatsById/ActionStatsLookup. Для крафта/сбора (CraftAction)
+        // или неразрешённых записей - null, тогда просто не рисуем этот блок вообще.
+        var hasStats = repository.ActionStatsById.TryGetValue(info.Entry.ActionId, out var stats);
         var display = ImGui.GetIO().DisplaySize;
         var scale = GetScale(display);
 
@@ -185,31 +193,33 @@ public static class TranslationOverlay
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
-        // Плоский тёмный фон и тонкая рамка - ВСЕГДА как надёжная база, независимо от того,
-        // удалось ли достать настоящую текстуру. Настоящая текстура (если есть) рисуется поверх
-        // этой базы как улучшение, а не замена - если DrawNineSlice по какой-то причине не
-        // нарисует часть/всю плашку (например, границы среза распознаны неверно и все 9 кусков
-        // оказались вырожденными), под ней всё равно останется читаемый фон, а не голый текст
-        // прямо поверх игрового мира.
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, NoteBg);
-        ImGui.PushStyleColor(ImGuiCol.Border, NoteBorder);
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, WindowBgColor);
+        ImGui.PushStyleColor(ImGuiCol.Border, BorderColor);
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
+        ImGui.PushStyleColor(ImGuiCol.TitleBg, TitleBgColor);
+        ImGui.PushStyleColor(ImGuiCol.TitleBgActive, TitleBgColor);
+        ImGui.PushStyleColor(ImGuiCol.TitleBgCollapsed, TitleBgColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(BaseWindowPaddingX * scale, BaseWindowPaddingY * scale));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 4f * scale);
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 0f); // острые углы, как у "инструмента разработчика"
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(BaseItemSpacing * scale, BaseItemSpacing * scale));
 
-        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
-                                        | ImGuiWindowFlags.NoResize
+        // Настоящий заголовок окна ImGui (не нарисованная вручную имитация) - NoInputs всё равно
+        // не даёт его таскать/закрывать, но сам заголовок (название умения на цветной плашке)
+        // рисуется штатными средствами ImGui. "###..." после текста - фиксированный ID окна для
+        // ImGui, не зависящий от того, какое умение показано сейчас (иначе окно "прыгало" бы
+        // между разными позициями/размерами в собственной памяти ImGui при смене умения).
+        const ImGuiWindowFlags flags = ImGuiWindowFlags.NoResize
                                         | ImGuiWindowFlags.NoMove
                                         | ImGuiWindowFlags.NoNav
                                         | ImGuiWindowFlags.NoFocusOnAppearing
                                         | ImGuiWindowFlags.NoInputs
+                                        | ImGuiWindowFlags.NoCollapse
                                         | ImGuiWindowFlags.AlwaysAutoResize;
 
         using var fontPush = GetBodyFont().Push();
 
-        if (ImGui.Begin("###JobGuideRUTranslationOverlay", flags))
+        if (ImGui.Begin($"{info.Entry.EnglishName}###JobGuideRUTranslationOverlay", flags))
         {
             // Масштабирует весь текст этого окна (и то, что CalcTextSize/перенос строк ниже
             // считают в WrapWidth*scale) под разрешение монитора - см. GetScale. Обязательно
@@ -217,72 +227,91 @@ public static class TranslationOverlay
             // немасштабированному размеру шрифта и разъедется с реальной шириной глифов.
             ImGui.SetWindowFontScale(scale);
 
-            // Размер берём с предыдущего кадра (см. lastSize) - ImGui не знает итоговый размер
-            // AlwaysAutoResize-окна до того, как весь контент этого кадра уже отправлен.
-            if (info.Background is { } bg)
-                DrawNineSlice(bg, ImGui.GetWindowPos(), lastSize);
+            if (hasStats)
+                DrawStatsHeader(stats, info.Entry.Classification, textureProvider, scale);
+            else if (!string.IsNullOrEmpty(info.Entry.Classification))
+                ImGui.TextColored(LabelColor, info.Entry.Classification);
 
-            // Полоска слева - маркер "это добавка плагина, не часть родного UI" (см. доккомментарий класса).
-            var winPos = ImGui.GetWindowPos();
-            ImGui.GetWindowDrawList().AddRectFilled(
-                winPos, winPos + new Vector2(AccentStripeWidth * scale, lastSize.Y),
-                ImGui.ColorConvertFloat4ToU32(NoteAccent));
-
-            ImGui.SetWindowFontScale(scale * 0.72f);
-            ImGui.TextColored(NoteAccent, TagText);
-            ImGui.SetWindowFontScale(scale);
+            ImGui.Separator();
 
             foreach (var line in info.Entry.Content!.Split('\n'))
                 DrawLine(line, scale);
+
+            if (hasStats)
+                DrawAcquiredAndAffinity(stats, scale);
+
+            ImGui.Spacing();
+            ImGui.SetWindowFontScale(scale * 0.78f);
+            ImGui.TextColored(FooterColor, FooterTag);
+            ImGui.SetWindowFontScale(scale);
 
             lastSize = ImGui.GetWindowSize();
         }
 
         ImGui.End();
         ImGui.PopStyleVar(4);
-        ImGui.PopStyleColor(3);
+        ImGui.PopStyleColor(6);
     }
+
+    private const float IconSize = 32f;
 
     /// <summary>
-    /// Рисует настоящую текстуру фона родного окна как девятислайс (края/углы не растягиваются,
-    /// растягивается только середина) на весь прямоугольник нашего окна. Раскладка TopOffset/
-    /// BottomOffset/LeftOffset/RightOffset как толщины кромок - предположение, см. комментарий
-    /// в AbilityHoverWatcher.TryGetBackgroundNineGrid.
+    /// Иконка умения + классификация ("Способность"/"Боевой навык"...) и Cast/Recast/Range/Radius -
+    /// всё это НЕ переводится (числа и коды, языко-независимы), просто дублируется в нашем окне из
+    /// листа Action (см. ActionStatsLookup), чтобы не заставлять смотреть в родное окно и в наше
+    /// одновременно.
     /// </summary>
-    private static void DrawNineSlice(AbilityHoverWatcher.NineGridInfo bg, Vector2 winPos, Vector2 winSize)
+    private static void DrawStatsHeader(ActionStats stats, string? classification, ITextureProvider textureProvider, float scale)
     {
-        if (bg.TextureWidth <= 0 || bg.TextureHeight <= 0 || bg.SpriteWidth <= 0 || bg.SpriteHeight <= 0)
-            return;
+        var iconSize = IconSize * scale;
+        var wrap = textureProvider.GetFromGameIcon(new GameIconLookup { IconId = stats.IconId }).GetWrapOrEmpty();
+        ImGui.Image(wrap.ImGuiHandle, new Vector2(iconSize, iconSize));
 
-        var drawList = ImGui.GetWindowDrawList();
+        ImGui.SameLine();
+        ImGui.BeginGroup();
 
-        var innerRight = bg.SpriteWidth - bg.RightOffset;
-        var innerBottom = bg.SpriteHeight - bg.BottomOffset;
+        if (!string.IsNullOrEmpty(classification))
+            ImGui.TextColored(LabelColor, classification);
 
-        Span<float> srcX = stackalloc float[] { 0, bg.LeftOffset, innerRight, bg.SpriteWidth };
-        Span<float> srcY = stackalloc float[] { 0, bg.TopOffset, innerBottom, bg.SpriteHeight };
+        ImGui.TextColored(LabelColor, $"Дальность {FormatYalms(stats.Range)}   Радиус {FormatYalms(stats.Radius)}");
+        ImGui.EndGroup();
 
-        Span<float> dstX = stackalloc float[] { 0, bg.LeftOffset, winSize.X - bg.RightOffset, winSize.X };
-        Span<float> dstY = stackalloc float[] { 0, bg.TopOffset, winSize.Y - bg.BottomOffset, winSize.Y };
+        ImGui.Spacing();
 
-        for (var row = 0; row < 3; row++)
+        // Cast/Recast - те же слова, что уже используются в тексте перевода (см.
+        // LabelOnlyAccentPrefixes: "Продолжительность"/"Стоимость" и т.п. там же про "сек.").
+        ImGui.TextColored(LabelColor, "Каст");
+        ImGui.SameLine(120f * scale);
+        ImGui.TextColored(LabelColor, "Восстановление");
+
+        ImGui.TextColored(BodyColor, stats.CastHundredMs == 0 ? "Мгновенная" : FormatSeconds(stats.CastHundredMs));
+        ImGui.SameLine(120f * scale);
+        ImGui.TextColored(BodyColor, FormatSeconds(stats.RecastHundredMs));
+
+        ImGui.Spacing();
+    }
+
+    /// <summary>Уровень получения + список работ, которым доступно умение (Affinity) - см. ActionStatsLookup.</summary>
+    private static void DrawAcquiredAndAffinity(ActionStats stats, float scale)
+    {
+        ImGui.Spacing();
+
+        ImGui.TextColored(LabelColor, "Получено");
+        ImGui.SameLine();
+        ImGui.TextColored(AccentColor, $"Ур. {stats.Level}");
+
+        if (stats.Jobs.Count > 0)
         {
-            for (var col = 0; col < 3; col++)
-            {
-                var p0 = winPos + new Vector2(dstX[col], dstY[row]);
-                var p1 = winPos + new Vector2(dstX[col + 1], dstY[row + 1]);
-                if (p1.X <= p0.X || p1.Y <= p0.Y)
-                    continue; // окно меньше суммы кромок - вырожденный кусок, пропускаем
-
-                var uv0 = new Vector2((bg.U + srcX[col]) / bg.TextureWidth, (bg.V + srcY[row]) / bg.TextureHeight);
-                var uv1 = new Vector2((bg.U + srcX[col + 1]) / bg.TextureWidth, (bg.V + srcY[row + 1]) / bg.TextureHeight);
-
-                // ImTextureID - readonly struct-обёртка над ulong-хэндлом, неявного преобразования
-                // из nint нет (только явный конструктор) - оборачиваем явно.
-                drawList.AddImage(new ImTextureID(bg.TextureId), p0, p1, uv0, uv1);
-            }
+            ImGui.TextColored(LabelColor, "Работы");
+            ImGui.PushTextWrapPos(ImGui.GetCursorPosX() + BaseWrapWidth * scale);
+            ImGui.TextColored(AccentColor, string.Join("  ", stats.Jobs));
+            ImGui.PopTextWrapPos();
         }
     }
+
+    private static string FormatSeconds(int hundredMs) => (hundredMs / 10f).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " сек.";
+
+    private static string FormatYalms(int range) => range < 0 ? "-" : range + "y";
 
     /// <summary>
     /// Рисует одну строку описания. Если строка начинается с одной из "структурных" меток

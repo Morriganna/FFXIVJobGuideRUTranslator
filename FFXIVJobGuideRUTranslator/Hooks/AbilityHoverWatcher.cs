@@ -51,18 +51,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     /// AtkStage.Instance()->TooltipManager (см. Windows/NativeTooltipOverlay.cs): нативные
     /// подсказки привязываются к id окна-владельца, а не к координатам.
     /// </summary>
-    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height, NineGridInfo? Background, ushort AddonId);
-
-    /// <summary>
-    /// Ссылка на РЕАЛЬНУЮ текстуру фона родного окна (та же самая, что уже загружена и
-    /// используется игрой прямо сейчас) вместе с геометрией девятислайса - чтобы нарисовать
-    /// перевод в плашке, которая один-в-один так же выглядит, как родная, а не в приближении
-    /// цветом. Только чтение - сам объект текстуры/ноды не модифицируется никак.
-    /// </summary>
-    public readonly record struct NineGridInfo(
-        nint TextureId, float TextureWidth, float TextureHeight,
-        float U, float V, float SpriteWidth, float SpriteHeight,
-        float TopOffset, float BottomOffset, float LeftOffset, float RightOffset);
+    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height, ushort AddonId);
 
     /// <summary>
     /// Что показано прямо сейчас в одном из отслеживаемых окон, или null.
@@ -251,18 +240,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 var width = addon->GetScaledWidth(true);
                 var height = addon->GetScaledHeight(true);
 
-                // Фон родной подсказки нужен только ImGui-варианту оверлея (TranslationOverlay,
-                // приближение цветом/текстурой); нативный вариант (NativeTranslationOverlayNode)
-                // рисует свой настоящий фон через KamiToolKit и его не использует - не тратим время
-                // на сканирование дерева нод впустую.
-                NineGridInfo? background = null;
-                if (!configuration.UseNativeTranslationWindow &&
-                    TryGetBackgroundNineGrid(addon, out var nineGrid, log))
-                {
-                    background = nineGrid;
-                }
-
-                currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, background, addon->Id);
+                currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, addon->Id);
                 lastSeenTicksMs = Environment.TickCount64;
 
                 // Экспериментальный режим (см. Configuration.UseNativeTranslationWindow): прячем
@@ -277,150 +255,6 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         catch (Exception ex)
         {
             log.Error(ex, $"[JobGuideRU] Ошибка при обработке аддона {args.AddonName}");
-        }
-    }
-
-    /// <summary>
-    /// Ищет самую большую по площади NineGrid-ноду в окне (кандидат на "это и есть фон/рамка")
-    /// и достаёт из неё ссылку на уже загруженную игрой текстуру + геометрию 9-слайса. Только
-    /// чтение: адрес ноды/её полей не изменяется, берём копию нужных значений.
-    /// Раскладка полей (TopOffset/BottomOffset/LeftOffset/RightOffset как толщина каждой из
-    /// четырёх кромок в пикселях спрайта, а не абсолютные координаты среза) - предположение по
-    /// имени полей в FFXIVClientStructs, не проверено на живом клиенте: если углы плашки при
-    /// растяжении выглядят перекошенными, вероятно, нужно поменять интерпретацию этих четырёх
-    /// значений в TranslationOverlay.DrawNineSlice.
-    /// </summary>
-    // Логируем причину неудачи только при СМЕНЕ причины (не каждый кадр - иначе log-файл
-    // раздувается за секунды, пока курсор наведён), чтобы разово увидеть в /xllog, на каком
-    // именно шаге ломается извлечение текстуры, не гадая вслепую по скриншотам.
-    private static string? lastLoggedReason;
-
-    private static bool TryGetBackgroundNineGrid(AtkUnitBase* addon, out NineGridInfo info, IPluginLog log)
-    {
-        info = default;
-
-        // Кандидат в фон может оказаться и NineGrid-нодой (с честным 9-слайсом), и обычной
-        // Image-нодой (одна текстура без разбиения на края - растягиваем целиком). Первая
-        // проверка (только NineGrid) нашла крошечную декоративную полоску 32x4 - явно не фон -
-        // поэтому теперь смотрим на обе разновидности и берём наибольшую по площади из ЛЮБОЙ.
-        AtkResNode* best = null;
-        var bestArea = 0f;
-        var nineGridCount = 0;
-        var imageCount = 0;
-
-        Scan((AtkResNode*)addon->RootNode);
-        for (var i = 0; i < addon->UldManager.NodeListCount; i++)
-            Scan(addon->UldManager.NodeList[i]);
-        // WindowNode - отдельное поле на самом AtkUnitBase (рамка/фон "стандартного" окна),
-        // не входит в обычное дерево RootNode/UldManager.NodeList - предыдущий поиск нашёл
-        // только тонкую декоративную полоску 32x4, значит настоящий фон, если он вообще
-        // текстура, а не просто заливка цветом, стоит поискать и здесь.
-        if (addon->WindowNode is not null)
-            Scan((AtkResNode*)addon->WindowNode);
-
-        void Scan(AtkResNode* node)
-        {
-            while (node is not null)
-            {
-                if (node->Type == NodeType.NineGrid || node->Type == NodeType.Image)
-                {
-                    if (node->Type == NodeType.NineGrid) nineGridCount++;
-                    else imageCount++;
-
-                    var area = (float)node->Width * node->Height;
-                    if (area > bestArea)
-                    {
-                        bestArea = area;
-                        best = node;
-                    }
-                }
-                else if (node->Type >= NodeType.Component)
-                {
-                    var component = ((AtkComponentNode*)node)->Component;
-                    if (component is not null && component->UldManager.NodeList is not null)
-                    {
-                        for (var i = 0; i < component->UldManager.NodeListCount; i++)
-                            Scan(component->UldManager.NodeList[i]);
-                    }
-                }
-
-                if (node->ChildNode is not null)
-                    Scan(node->ChildNode);
-
-                node = node->PrevSiblingNode;
-            }
-        }
-
-        if (best is null)
-            return Fail($"ни одной NineGrid/Image-ноды в окне не найдено (NineGrid={nineGridCount}, Image={imageCount})");
-
-        // Проверено на живом клиенте (45 кандидатов, включая WindowNode): в ActionDetail нет
-        // ноды, которая правдоподобно выглядела бы как основной фон - самая большая раз за разом
-        // оказывается декоративной полоской 32x4 (area=1384), явно не фон. Похоже, фон здесь -
-        // обычная заливка цветом на уровне ниже нод, до которого не достучаться. Порог отсекает
-        // любые такие мелкие декоративные элементы: пока не найдётся что-то ощутимо крупнее
-        // иконки умения, используем проверенное приближение цветом вместо случайной картинки.
-        const float minPlausibleBackgroundArea = 6000f; // с запасом больше типичной иконки (~40x40=1600)
-        if (bestArea < minPlausibleBackgroundArea)
-            return Fail($"крупнейший кандидат ({best->Type}, area={bestArea}) слишком мал, чтобы быть фоном - похоже, реального фона-текстуры тут нет");
-
-        // AtkImageNode и AtkNineGridNode держат PartsList/PartId на одних и тех же полях (хоть у
-        // AtkNineGridNode PartId - uint, а у AtkImageNode - ushort), поэтому оба разбираем через
-        // общий указатель на AtkNineGridNode - для Image-ноды поля TopOffset и т.п. дальше по
-        // структуре, но мы их просто не используем (offsets остаются 0 => без 9-слайса, просто
-        // растягиваем целиком).
-        var isNineGrid = best->Type == NodeType.NineGrid;
-        var asNineGrid = (AtkNineGridNode*)best;
-        var partsList = asNineGrid->PartsList;
-        var partId = isNineGrid ? asNineGrid->PartId : ((AtkImageNode*)best)->PartId;
-
-        if (partsList is null || partId >= partsList->PartCount)
-            return Fail($"у выбранной ноды ({best->Type}, area={bestArea}) нет валидного PartsList/PartId");
-
-        var part = &partsList->Parts[partId];
-        var asset = part->UldAsset;
-        if (asset is null)
-            return Fail("у части (Part) нет UldAsset");
-        if (!asset->AtkTexture.IsTextureReady())
-            return Fail("текстура найдена, но IsTextureReady() == false");
-
-        var texture = asset->AtkTexture.GetKernelTexture();
-        if (texture is null)
-            return Fail("GetKernelTexture() вернул null");
-        if (texture->D3D11ShaderResourceView is null)
-            return Fail("у текстуры нет D3D11ShaderResourceView");
-
-        info = new NineGridInfo(
-            (nint)texture->D3D11ShaderResourceView,
-            texture->ActualWidth,
-            texture->ActualHeight,
-            part->U, part->V, part->Width, part->Height,
-            isNineGrid ? asNineGrid->TopOffset : 0,
-            isNineGrid ? asNineGrid->BottomOffset : 0,
-            isNineGrid ? asNineGrid->LeftOffset : 0,
-            isNineGrid ? asNineGrid->RightOffset : 0);
-
-        var successReason = $"OK: nodeType={best->Type} area={bestArea} (candidates NineGrid={nineGridCount} Image={imageCount}) texture {texture->ActualWidth}x{texture->ActualHeight}, " +
-                             $"sprite U={part->U} V={part->V} W={part->Width} H={part->Height}, " +
-                             $"offsets T={(isNineGrid ? asNineGrid->TopOffset : 0)} B={(isNineGrid ? asNineGrid->BottomOffset : 0)} " +
-                             $"L={(isNineGrid ? asNineGrid->LeftOffset : 0)} R={(isNineGrid ? asNineGrid->RightOffset : 0)}";
-        if (successReason != lastLoggedReason)
-        {
-            lastLoggedReason = successReason;
-            log.Information($"[JobGuideRU] Фон найден: {successReason}");
-        }
-
-        return true;
-
-        bool Fail(string reason)
-        {
-            if (reason != lastLoggedReason)
-            {
-                lastLoggedReason = reason;
-                log.Information($"[JobGuideRU] Фон НЕ найден: {reason}");
-            }
-
-            return false;
         }
     }
 
