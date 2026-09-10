@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Dalamud.Bindings.ImGui;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Command;
 using Dalamud.IoC;
@@ -84,6 +85,7 @@ public sealed class Plugin : IDalamudPlugin
     {
         WindowSystem.Draw();
 
+        hoverWatcher?.RefreshIfCursorStable(ImGui.GetIO().MousePos);
         TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
     }
 

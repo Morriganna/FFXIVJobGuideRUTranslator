@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
 using Dalamud.Game.Gui;
@@ -36,16 +37,26 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     // IGameGui.HoveredAction, вопреки документации Dalamud, на практике НЕ сбрасывается в 0, когда
     // курсор уходит в пустое место - держит последнее значение, пока не наведёшь на что-то новое
-    // (проверено на живом клиенте). Поэтому его нельзя использовать как самостоятельный признак
-    // "наведено прямо сейчас" - единственный надёжный сигнал "аддон ещё релевантен" - то, что игра
-    // продолжает вызывать для него PreDraw с IsVisible = true (см. ProcessAddon). currentValue
-    // обновляется только оттуда и протухает, если PreDraw не подтверждал совпадение уже StaleAfterMs.
+    // (проверено на живом клиенте), поэтому сам по себе для "наведено прямо сейчас" не годится.
+    // Прячем родную подсказку через альфу (см. ProcessAddon), а не addon->IsVisible - это важно и
+    // для скрытия, и для слежения: если бы мы сами гасили IsVisible, то заодно обрубили бы и
+    // PreDraw для этого аддона на все следующие кадры (похоже, движок не утруждается обрабатывать
+    // невидимое окно) - вместе с ним потеряли бы единственный надёжный сигнал "курсор всё ещё тут".
+    // С альфой IsVisible остаётся настоящим, каким его держит сама игра - PreDraw продолжает
+    // исправно вызываться, пока реально наведено. RefreshIfCursorStable - дополнительная подстраховка
+    // на случай пауз между перерисовками самого аддона (см. StaleAfterMs).
     private HoverInfo? currentValue;
     private long lastSeenTicksMs;
+    private TranslationEntry? cursorTrackedEntry;
+    private Vector2 lastMousePos;
 
     // Сам аддон не перерисовывается каждый кадр, даже пока курсор неподвижно стоит на умении -
-    // окно на этот случай, чтобы подсказка не гасла между такими перерисовками.
+    // окно на этот случай, чтобы подсказка не гасла между такими перерисовками/паузами PreDraw.
     private const long StaleAfterMs = 600;
+
+    // Курсор считается "тем же местом" в пределах этого радиуса (px) - небольшой допуск на
+    // дрожание руки/мыши, а не на реальное перемещение к другой иконке.
+    private const float MouseStableRadius = 6f;
 
     /// <summary>Умение с переводом, наведённое прямо сейчас, или null.</summary>
     public HoverInfo? Current
@@ -58,6 +69,36 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
             return Environment.TickCount64 - lastSeenTicksMs <= StaleAfterMs ? value : null;
         }
+    }
+
+    /// <summary>
+    /// Вызывать каждый кадр из Plugin.OnDraw с текущей позицией курсора (ImGui.GetIO().MousePos).
+    /// Пока курсор остаётся примерно на месте (в пределах MouseStableRadius) относительно того, где
+    /// он был, когда умение последний раз подтвердилось - продлевает Current, даже если PreDraw
+    /// аддона всё это время молчит (см. комментарий у currentValue). Как только курсор сдвинулся
+    /// заметно - просто перестаёт продлевать, и подсказка гаснет сама в пределах StaleAfterMs.
+    /// </summary>
+    public void RefreshIfCursorStable(Vector2 mousePos)
+    {
+        if (currentValue is not { } current)
+        {
+            cursorTrackedEntry = null;
+            return;
+        }
+
+        if (!ReferenceEquals(current.Entry, cursorTrackedEntry))
+        {
+            // Новое умение (или первый кадр после того, как его нашёл ProcessAddon) - просто
+            // запоминаем точку отсчёта, повторно продлевать не нужно, ProcessAddon это уже сделал.
+            cursorTrackedEntry = current.Entry;
+            lastMousePos = mousePos;
+            return;
+        }
+
+        if (Vector2.DistanceSquared(mousePos, lastMousePos) <= MouseStableRadius * MouseStableRadius)
+            lastSeenTicksMs = Environment.TickCount64;
+
+        lastMousePos = mousePos;
     }
 
     public AbilityHoverWatcher(
@@ -117,8 +158,8 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         log.Information($"[JobGuideRU] Слушаю аддоны: {string.Join(", ", registeredAddonNames)}");
     }
 
-    // PreDraw, а не PostDraw - чтобы IsVisible = false долетало до рендера этого же кадра, а не
-    // следующего (иначе окно на кадр мигало видимым).
+    // PreDraw, а не PostDraw - чтобы скрытие долетало до рендера этого же кадра, а не следующего
+    // (иначе окно на кадр мигало видимым).
     private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
         if (!configuration.Enabled)
@@ -162,7 +203,21 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             {
                 currentValue = new HoverInfo(entry);
                 lastSeenTicksMs = Environment.TickCount64;
-                addon->IsVisible = false;
+
+                // Alpha, а не IsVisible - выставив IsVisible = false, мы бы сами обрубили PreDraw
+                // для этого аддона на все следующие кадры (движок, похоже, не утруждается
+                // обрабатывать невидимое окно) - вместе с ним потеряли бы и единственный надёжный
+                // сигнал "курсор всё ещё тут" (см. комментарий у currentValue). С альфой IsVisible
+                // остаётся настоящим, каким его держит сама игра - PreDraw продолжает исправно
+                // вызываться, пока реально наведено, и гаснет ровно тогда, когда гаснет он.
+                if (addon->RootNode is not null)
+                    ((AtkResNode*)addon->RootNode)->Color.A = 0;
+            }
+            else if (addon->RootNode is not null && ((AtkResNode*)addon->RootNode)->Color.A == 0)
+            {
+                // Другое использование того же переиспользуемого попапа (Materia Extraction,
+                // Repair и т.п.) - обязательно возвращаем альфу, иначе оно останется прозрачным.
+                ((AtkResNode*)addon->RootNode)->Color.A = 255;
             }
         }
         catch (Exception ex)
