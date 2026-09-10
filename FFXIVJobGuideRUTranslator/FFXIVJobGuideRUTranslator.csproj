@@ -19,10 +19,4 @@
          только чтобы обновить перевод командой "/jgru update". -->
     <EmbeddedResource Include="Data\SourceJson\**\*.json" />
   </ItemGroup>
-
-  <!-- Пакет KamiToolKit убран: попытка заменить родную подсказку умения собственным деревом нод
-       (OverlayController/OverlayNode/TextNode) не прижилась - перенос текста не работал как
-       нужно, видимость мигала. Заменено на нативный AtkStage.Instance()->TooltipManager из
-       FFXIVClientStructs (уже приходит транзитивно через сам Dalamud.NET.Sdk, отдельный пакет не
-       нужен) - см. Windows/NativeTooltipOverlay.cs. -->
 </Project>

@@ -3,8 +3,8 @@ name: Release
 # Срабатывает на пуш тега вида v0.1.1, либо запускается вручную (Actions -> Release -> Run
 # workflow) с вводом номера версии - тогда тег создаёт и пушит сам. Обычные пуши в main его не
 # трогают, тестовые сборки собирает отдельный workflow (test-build.yml) сам по себе.
-# Перед релизом не забудьте поднять <Version> в FFXIVJobGuideRUTranslator.csproj,
-# иначе Dalamud не увидит новую версию как обновление.
+# AssemblyVersion берётся из самого тега (-p:Version=... при сборке), а не из <Version> в
+# csproj - бампать её вручную перед релизом не нужно, достаточно запушить/ввести новый тег.
 on:
   push:
     tags:
@@ -46,6 +46,10 @@ jobs:
 
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
+          # Версия сборки = тег без ведущей 'v' (v0.1.2 -> 0.1.2), передаётся как -p:Version=...
+          # при сборке ниже - так AssemblyVersion в манифесте всегда совпадает с тегом релиза.
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
       - name: Create and push tag (manual run only)
         if: github.event_name == 'workflow_dispatch'
         run: |
@@ -73,7 +77,10 @@ jobs:
         run: dotnet restore FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj --locked-mode
 
       - name: Build
-        run: dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj -c Release --no-restore
+        run: >
+          dotnet build FFXIVJobGuideRUTranslator/FFXIVJobGuideRUTranslator.csproj
+          -c Release --no-restore
+          -p:Version=${{ steps.tag.outputs.version }}
 
       - name: Locate DalamudPackager output
         id: pkg

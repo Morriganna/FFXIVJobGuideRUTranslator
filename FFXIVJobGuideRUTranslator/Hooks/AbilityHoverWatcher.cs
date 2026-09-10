@@ -10,29 +10,9 @@ using FFXIVJobGuideRUTranslator.Data;
 namespace FFXIVJobGuideRUTranslator.Hooks;
 
 /// <summary>
-/// НЕ трогает никакие ноды игры. Пять предыдущих попыток вписать перевод прямо в нативную
-/// подсказку (растянуть плашку, сдвинуть соседей, уменьшить шрифт) одна за другой ломались,
-/// потому что ActionDetail - общий попап игры, переиспользуемый на тех же адресах нод под
-/// множество структурно разных вещей (умения, Materia Extraction, Repair, Ignore Target,
-/// роулетки...), и любое вмешательство в его память рано или поздно "протекало" в контент,
-/// который мы вообще не должны были трогать. А уменьшение шрифта не спасает по-настоящему
-/// длинные описания (Technical Step и подобные) - становится нечитаемо.
-///
-/// Вместо этого этот класс только СМОТРИТ, какое (если вообще какое-то) переведённое умение
-/// сейчас показано в одном из окон из Configuration.TargetAddonNames, и выставляет
-/// <see cref="Current"/> (само умение + экранные координаты родного окна). Подсказку/панель
-/// самой игры это не меняет и не может сломать -
-/// перевод рисуется отдельным всплывающим окном ImGui поверх экрана (см. TranslationOverlay),
-/// которое само разворачивается под любой объём текста.
-///
-/// Как опознаётся умение:
-///  1. Если сейчас реально наведено на боевое/ремесленное умение на хотбаре - точный ActionId
-///     через IGameGui.HoveredAction, но ТОЛЬКО когда HoveredAction.DetailKind - это Action или
-///     CraftingAction. Другие виды (DetailKind.GeneralAction и т.п. - Materia Extraction,
-///     Ignore Target, роулетки...) не переведены и не должны попадать в выборку - их ActionId
-///     живёт в отдельном пространстве идентификаторов и может случайно совпасть с ID умения.
-///  2. Иначе (например, панель в "Actions & Traits") ищем текстовую ноду с названием умения
-///     среди известных нам названий - только ЧИТАЕМ текст, ничего не меняем.
+/// Следит, какое (если вообще какое-то) переведённое умение сейчас показано в одном из окон из
+/// Configuration.TargetAddonNames, и прячет родную подсказку, если для неё есть перевод - сам
+/// перевод рисует TranslationOverlay отдельным окном ImGui. Ноды игры не меняет.
 /// </summary>
 public sealed unsafe class AbilityHoverWatcher : IDisposable
 {
@@ -44,31 +24,9 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     private readonly HashSet<string> registeredAddonNames = new();
 
-    /// <summary>
-    /// Умение + экранные координаты и размер РОДНОГО окна, в котором оно показано - только чтение,
-    /// координаты нужны, чтобы поставить перевод рядом, а не там, где сейчас курсор мыши (иначе в
-    /// списках/панелях перевод оказывается где попало и перекрывает контент). AddonId - для
-    /// AtkStage.Instance()->TooltipManager (см. Windows/NativeTooltipOverlay.cs): нативные
-    /// подсказки привязываются к id окна-владельца, а не к координатам.
-    /// </summary>
-    public readonly record struct HoverInfo(TranslationEntry Entry, float X, float Y, float Width, float Height, ushort AddonId);
+    public readonly record struct HoverInfo(TranslationEntry Entry);
 
-    /// <summary>
-    /// Что показано прямо сейчас в одном из отслеживаемых окон, или null.
-    ///
-    /// Раньше это жило "один кадр" по схеме "выставили в OnAddonPostDraw -> погасили в конце
-    /// Plugin.OnDraw (ResetForNextFrame)". Это ломалось для NativeTranslationOverlayNode:
-    /// OverlayController из KamiToolKit обновляет свои ноды по СВОЕМУ циклу, а не по событию
-    /// UiBuilder.Draw (которым и был Plugin.OnDraw) - относительный порядок "PostDraw родного
-    /// аддона / сброс в конце ImGui-кадра / OnUpdate оверлея" непредсказуем между разными
-    /// подсистемами, и на практике OnUpdate почти всегда читал уже сброшенное значение (см. лог:
-    /// оверлей стабильно видел "нет наведённого умения", хотя родная подсказка при этом гасла -
-    /// то есть OnAddonPostDraw точно отрабатывал и находил перевод).
-    ///
-    /// Вместо привязки к конкретному событию-кадру теперь значение просто "свежее" в течение
-    /// небольшого окна времени после последней установки (см. StaleAfterMs) - не имеет значения,
-    /// кто и когда его читает, ImGui-оверлей или обновление KamiToolKit.
-    /// </summary>
+    /// <summary>Умение с переводом, наведённое прямо сейчас, или null.</summary>
     public HoverInfo? Current
     {
         get
@@ -84,14 +42,9 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     private HoverInfo? currentValue;
     private long lastSeenTicksMs;
 
-    // Оказалось (проверено на живом клиенте), что сам аддон ActionDetail НЕ перерисовывается
-    // каждый игровой кадр, пока его содержимое не меняется - PostDraw/PreDraw срабатывают
-    // заметно реже, чем 60 раз в секунду (похоже на dirty-flag оптимизацию движка), даже пока
-    // курсор всё это время неподвижно стоит на умении. При 150мс окно "свежести" оказывалось
-    // короче типичного промежутка между такими перерисовками - подсказка успевала "протухнуть"
-    // и погаснуть, хотя курсор с умения никто не убирал. Увеличено с запасом; для случая наведения
-    // прямо на хотбар это не единственная защита - см. RefreshIfStillHovering, который держит
-    // Current свежим на каждом кадре ImGui независимо от того, срабатывал ли в этом кадре PostDraw.
+    // Родной аддон не перерисовывается каждый кадр, пока его содержимое не меняется - при
+    // слишком коротком окне "свежести" подсказка гасла сама по себе, пока курсор ещё стоял на
+    // умении. См. также RefreshIfStillHovering.
     private const long StaleAfterMs = 500;
 
     public AbilityHoverWatcher(
@@ -110,16 +63,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         ApplyRegistrations();
     }
 
-    /// <summary>
-    /// Вызывать каждый кадр из Plugin.OnDraw (ImGui-кадр, срабатывает исправно каждый раз, в
-    /// отличие от PostDraw/PreDraw аддона - см. StaleAfterMs). Если IGameGui.HoveredAction прямо
-    /// сейчас всё ещё указывает на то же самое умение, что уже показано в Current, продлевает его
-    /// свежесть - тогда подсказка не гаснет из-за паузы в перерисовке родного аддона, пока курсор
-    /// реально остаётся на месте, и всё равно гаснет достаточно быстро (в пределах StaleAfterMs),
-    /// как только курсор реально уходит. Не помогает для случая "Actions & Traits" (там нет
-    /// HoveredAction, умение опознаётся по тексту в ноде) - для него единственная защита от
-    /// протухания - сам StaleAfterMs.
-    /// </summary>
+    /// <summary>Вызывать каждый кадр из Plugin.OnDraw - продлевает свежесть Current, пока IGameGui.HoveredAction всё ещё указывает на то же умение.</summary>
     public void RefreshIfStillHovering()
     {
         if (currentValue is not { } current)
@@ -139,7 +83,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             lastSeenTicksMs = Environment.TickCount64;
     }
 
-    /// <summary>Перерегистрирует слушатели под текущий список Configuration.TargetAddonNames (вызывать после изменения настроек).</summary>
+    /// <summary>Перерегистрирует слушатели под текущий Configuration.TargetAddonNames - вызывать после изменения настроек.</summary>
     public void ApplyRegistrations()
     {
         foreach (var name in registeredAddonNames)
@@ -149,12 +93,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         foreach (var rawName in configuration.TargetAddonNames)
         {
             var name = rawName?.Trim();
-            if (string.IsNullOrEmpty(name))
-                continue;
-
-            // HashSet.Add возвращает false, если имя уже добавлено - так регистрируем каждый
-            // аддон максимум один раз, даже если в конфиге он по ошибке продублирован.
-            if (!registeredAddonNames.Add(name))
+            if (string.IsNullOrEmpty(name) || !registeredAddonNames.Add(name))
                 continue;
 
             addonLifecycle.RegisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
@@ -163,17 +102,8 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         log.Information($"[JobGuideRU] Слушаю аддоны: {string.Join(", ", registeredAddonNames)}");
     }
 
-    /// <summary>
-    /// Прячет родную подсказку (через альфу корневой ноды - см. ProcessAddon) ДО отрисовки этого же
-    /// кадра, а не постфактум (в PostDraw) - раньше (см. историю правок) прятанье делалось в
-    /// PostDraw, на кадр ПОЗЖЕ момента, когда игра уже нарисовала окно видимым, и если игра сама
-    /// периодически заново включает видимость, пока курсор ещё наведён (судя по логу - именно так и
-    /// происходит), окно успевает мигнуть видимым каждый такой раз. PreDraw срабатывает
-    /// непосредственно перед отрисовкой ЭТОГО кадра. Прячем ВСЕГДА, как только для умения есть
-    /// перевод - независимо от Configuration.UseNativeTranslationWindow: в обычном режиме вместо
-    /// неё показывается TranslationOverlay (ImGui), в экспериментальном - NativeTooltipOverlay
-    /// (TooltipManager); в обоих случаях родная английская подсказка не нужна.
-    /// </summary>
+    // PreDraw, а не PostDraw - чтобы IsVisible = false долетало до рендера этого же кадра, а не
+    // следующего (иначе окно на кадр мигало видимым).
     private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
         if (!configuration.Enabled)
@@ -186,17 +116,14 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     {
         try
         {
-            // args.Addon - это AtkUnitBasePtr (обёртка без прямой зависимости от ClientStructs),
-            // берём голый адрес через .Address и приводим его к настоящему указателю.
             var addon = (AtkUnitBase*)args.Addon.Address;
             if (addon is null || !addon->IsVisible)
                 return;
 
             TranslationEntry? entry = null;
 
-            // DetailKind обязателен: у системных команд (Materia Extraction, Ignore Target,
-            // роулетки и т.п. - DetailKind.GeneralAction и другие) ActionId живёт в своём,
-            // отдельном пространстве ID и может случайно совпасть с ID переведённого умения.
+            // DetailKind обязателен: у системных команд (Materia Extraction, роулетки и т.п.)
+            // ActionId живёт в своём пространстве ID и может случайно совпасть с ID умения.
             var hovered = gameGui.HoveredAction;
             if (hovered.ActionId != 0 &&
                 (hovered.DetailKind == DetailKind.Action || hovered.DetailKind == DetailKind.CraftingAction) &&
@@ -207,10 +134,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
             if (entry is null)
             {
-                // Окно вроде "Actions & Traits": ищем ноду с названием умения среди известных
-                // нам названий. Только читаем текст нод, ничего не меняем и не сохраняем адреса.
-                // Текстовые ноды уже заполнены игрой к этому моменту (данные обновляются в Update,
-                // до Draw) - работает одинаково что в PreDraw, что в PostDraw.
+                // Панель вроде "Actions & Traits" - ищем ноду с известным названием умения.
                 foreach (var text in EnumerateTextNodes(addon))
                 {
                     if (string.IsNullOrWhiteSpace(text))
@@ -225,32 +149,13 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
             if (entry is not null && !string.IsNullOrEmpty(entry.Content))
             {
-                // Координаты/размер читаем ДО того, как прячем окно ниже - пока оно ещё честно
-                // отражает то место, куда его только что поставила игра.
-                var width = addon->GetScaledWidth(true);
-                var height = addon->GetScaledHeight(true);
-
-                currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, addon->Id);
+                currentValue = new HoverInfo(entry);
                 lastSeenTicksMs = Environment.TickCount64;
 
-                // Прячем РОДНУЮ подсказку через альфу корневой ноды, а не addon->IsVisible - выяснилось
-                // (см. историю правок), что IsVisible = false, судя по всему, попутно гасит и
-                // собственную логику позиционирования аддона (она, похоже, гейтится видимостью):
-                // окно переставало обновлять X/Y вслед за курсором/хотбаром и наш перевод оставался
-                // "приклеен" к точке, где стоял аддон в момент первого скрытия. Alpha = 0 делает
-                // ноду невидимой, не трогая IsVisible - аддон как ни в чём не бывало продолжает
-                // каждый кадр честно пересчитывать положение и размер, просто рисует прозрачные
-                // пиксели - именно этим X/Y/Width/Height выше и продолжают быть актуальными.
-                if (addon->RootNode is not null)
-                    ((AtkResNode*)addon->RootNode)->Color.A = 0;
-            }
-            else if (addon->RootNode is not null && ((AtkResNode*)addon->RootNode)->Color.A == 0)
-            {
-                // Курсор ушёл с переведённого умения, или это вообще другое использование этого же
-                // переиспользуемого попапа (Materia Extraction, Repair и т.п.) - обязательно
-                // возвращаем альфу, иначе аддон останется прозрачным НАВСЕГДА для всех будущих
-                // применений (см. историю правок про то, почему это вообще общий попап игры).
-                ((AtkResNode*)addon->RootNode)->Color.A = 255;
+                // Прячем только когда для умения есть перевод; в остальных случаях (Materia
+                // Extraction, Repair и т.п. - тот же переиспользуемый попап) не трогаем - игра
+                // сама выставит IsVisible = true, когда окно снова понадобится ей самой.
+                addon->IsVisible = false;
             }
         }
         catch (Exception ex)

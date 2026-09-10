@@ -60,19 +60,6 @@ public class ConfigWindow : Window, IDisposable
             configuration.Save();
         }
 
-        var useNativeWindow = configuration.UseNativeTranslationWindow;
-        if (ImGui.Checkbox("Экспериментально: показывать перевод нативной подсказкой игры вместо ImGui", ref useNativeWindow))
-        {
-            configuration.UseNativeTranslationWindow = useNativeWindow;
-            configuration.Save();
-        }
-        ImGui.TextWrapped(
-            "Прячет родную подсказку умения (только когда для неё есть перевод) и показывает перевод " +
-            "через тот же нативный менеджер подсказок, которым игра сама показывает подсказки у иконок " +
-            "валют, ссылок в чате и т.п. (AtkTooltipManager) - выглядит жёлтой подсказкой-пузырём, а не " +
-            "окном в рамке, как у самого ActionDetail. Если что-то сломалось (в т.ч. в ДРУГИХ окнах, не " +
-            "связанных с умениями), выключите этот тумблер здесь.");
-
         ImGui.Separator();
         ImGui.TextUnformatted("Список аддонов, где разрешена подмена текста:");
         ImGui.TextWrapped("Проверьте актуальные имена через /xldata -> Addon Inspector, если что-то не работает.");
@@ -84,8 +71,7 @@ public class ConfigWindow : Window, IDisposable
             ImGui.SameLine();
             ImGui.TextUnformatted(configuration.TargetAddonNames[i]);
             ImGui.SameLine();
-            // ID кнопки завязан на индекс, а не на имя - иначе одинаковые записи (например, если
-            // список случайно продублировался) получают одинаковый ImGui ID и путаются между собой.
+            // ID кнопки по индексу, не по имени - иначе задублированные записи путаются между собой.
             if (ImGui.SmallButton($"Убрать###remove_{i}"))
                 toRemoveIndex = i;
         }
@@ -196,10 +182,6 @@ public class ConfigWindow : Window, IDisposable
             return;
         }
 
-        // Стандартный API таблиц ImGui.NET (BeginTable/TableSetupColumn/TableHeadersRow/...) -
-        // как и остальной код с Dalamud.Bindings.ImGui в этом проекте, не проверялся на живом
-        // клиенте (см. README, "Важно понимать заранее"). Если тут ошибка компиляции - смотрите
-        // в IntelliSense точные имена ImGuiTableFlags/ImGuiTableColumnFlags в вашей версии биндинга.
         const ImGuiTableFlags tableFlags = ImGuiTableFlags.Borders | ImGuiTableFlags.RowBg |
                                             ImGuiTableFlags.ScrollY | ImGuiTableFlags.Resizable;
 

@@ -5,14 +5,7 @@ using Dalamud.Plugin.Services;
 
 namespace FFXIVJobGuideRUTranslator.Data;
 
-/// <summary>
-/// Доп. статы умения (иконка/каст/восстановление/дальность/радиус/уровень/работы), напрямую из
-/// листа Lumina Action - см. TranslationOverlay. Переводить тут нечего - это числа и коды,
-/// игра их и так показывает "языко-независимо" в родном окне рядом с нашим переводом; мы их
-/// просто дублируем в своём окне, чтобы не заставлять игрока смотреть в оба одновременно.
-/// Только для боевых умений (TranslationEntry.ResolvedSheet == "Action") - у CraftAction (крафт/
-/// сбор) другая структура листа, этих полей там нет.
-/// </summary>
+/// <summary>Доп. статы умения (иконка/каст/восстановление/дальность/радиус/уровень/работы) из листа Lumina Action - см. TranslationOverlay. Только для боевых умений, у CraftAction другая структура.</summary>
 public readonly record struct ActionStats(
     uint IconId,
     int CastHundredMs,

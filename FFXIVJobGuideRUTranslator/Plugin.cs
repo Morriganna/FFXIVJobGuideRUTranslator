@@ -23,12 +23,8 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
-    // IClientState.LocalPlayer признан устаревшим начиная с API 14 (см. changelog Dalamud v14) -
-    // для чтения атрибутов текущего персонажа (в т.ч. работы) правильный сервис теперь IPlayerState.
     [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
-    // Иконка умения в TranslationOverlay (см. ActionStatsLookup) - грузится через готовый сервис
-    // Dalamud, а не напрямую из файлов игры.
-    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!;
+    [PluginService] internal static ITextureProvider TextureProvider { get; private set; } = null!; // иконки умений в TranslationOverlay
 
     private const string CommandName = "/jgru";
 
@@ -81,10 +77,6 @@ public sealed class Plugin : IDalamudPlugin
         hoverWatcher?.Dispose();
         hoverWatcher = null;
 
-        // Чтобы не оставить нативную подсказку висеть на экране, если плагин выгружается/
-        // перезагружается ровно в момент, когда она показана.
-        NativeTooltipOverlay.HideIfShown(Log);
-
         CommandManager.RemoveHandler(CommandName);
     }
 
@@ -92,24 +84,9 @@ public sealed class Plugin : IDalamudPlugin
     {
         WindowSystem.Draw();
 
-        // Продлевает свежесть hoverWatcher.Current на каждом ImGui-кадре, пока курсор реально
-        // остаётся на том же умении хотбара - см. доккомментарий RefreshIfStillHovering. Нужно
-        // делать ДО чтения Current ниже (и в NativeTooltipOverlay.Draw, и в TranslationOverlay.Draw).
         hoverWatcher?.RefreshIfStillHovering();
 
-        // Оверлей с переводом рисуется отдельно поверх экрана - см. AbilityHoverWatcher и один из
-        // двух вариантов оверлея:
-        //  - обычный (по умолчанию) - TranslationOverlay, ImGui-окно, приближающее вид родной
-        //    подсказки;
-        //  - экспериментальный (Configuration.UseNativeTranslationWindow) - NativeTooltipOverlay,
-        //    настоящая нативная подсказка игры через AtkStage.Instance()->TooltipManager (см. её
-        //    доккомментарий - самодельные ноды через KamiToolKit не прижились).
-        // NativeTooltipOverlay.Draw зовём всегда (не только в нативном режиме) - если тумблер
-        // выключен, она сама прячет то, что успела показать раньше, до переключения режима.
-        NativeTooltipOverlay.Draw(hoverWatcher?.Current, Configuration.UseNativeTranslationWindow, Log);
-
-        if (!Configuration.UseNativeTranslationWindow)
-            TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
+        TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
     }
 
     public void ApplyAddonRegistrations() => hoverWatcher?.ApplyRegistrations();
