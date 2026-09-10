@@ -84,8 +84,6 @@ public sealed class Plugin : IDalamudPlugin
     {
         WindowSystem.Draw();
 
-        hoverWatcher?.RefreshIfStillHovering();
-
         TranslationOverlay.Draw(hoverWatcher?.Current, Repository, TextureProvider);
     }
 

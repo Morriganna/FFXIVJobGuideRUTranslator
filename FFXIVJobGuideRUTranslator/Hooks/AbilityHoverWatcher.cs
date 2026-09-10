@@ -24,28 +24,41 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
 
     private readonly HashSet<string> registeredAddonNames = new();
 
+    // Умения, для которых плагин намеренно не показывает свой перевод (и не трогает родную
+    // подсказку) - по английскому названию, как оно в TranslationEntry.EnglishName. Добавить ещё
+    // одно исключение - просто дописать сюда его EN-название.
+    private static readonly HashSet<string> ExcludedAbilityNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Sprint",
+    };
+
     public readonly record struct HoverInfo(TranslationEntry Entry);
 
-    /// <summary>Умение с переводом, наведённое прямо сейчас, или null.</summary>
+    // Для панели вроде "Actions & Traits" - там нет HoveredAction, поэтому умение опознаётся по
+    // тексту ноды в PreDraw и хранится недолго (аддон не перерисовывается каждый кадр, см.
+    // PanelStaleAfterMs). Для хотбара кэш не нужен вообще - см. Current.
+    private TranslationEntry? panelEntry;
+    private long panelSeenTicksMs;
+    private const long PanelStaleAfterMs = 500;
+
+    /// <summary>
+    /// Умение с переводом, наведённое прямо сейчас, или null. Для хотбара каждый раз читает
+    /// живое состояние игры (IGameGui.HoveredAction) - никакого кэша/протухания, поэтому исчезает
+    /// ровно в тот кадр, когда курсор реально уходит с умения.
+    /// </summary>
     public HoverInfo? Current
     {
         get
         {
-            var value = currentValue;
-            if (value is null)
-                return null;
+            if (TryGetHoveredEntry(out var hoveredEntry))
+                return new HoverInfo(hoveredEntry);
 
-            return Environment.TickCount64 - lastSeenTicksMs <= StaleAfterMs ? value : null;
+            if (panelEntry is not null && Environment.TickCount64 - panelSeenTicksMs <= PanelStaleAfterMs)
+                return new HoverInfo(panelEntry);
+
+            return null;
         }
     }
-
-    private HoverInfo? currentValue;
-    private long lastSeenTicksMs;
-
-    // Родной аддон не перерисовывается каждый кадр, пока его содержимое не меняется - при
-    // слишком коротком окне "свежести" подсказка гасла сама по себе, пока курсор ещё стоял на
-    // умении. См. также RefreshIfStillHovering.
-    private const long StaleAfterMs = 500;
 
     public AbilityHoverWatcher(
         IAddonLifecycle addonLifecycle,
@@ -63,24 +76,26 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         ApplyRegistrations();
     }
 
-    /// <summary>Вызывать каждый кадр из Plugin.OnDraw - продлевает свежесть Current, пока IGameGui.HoveredAction всё ещё указывает на то же умение.</summary>
-    public void RefreshIfStillHovering()
+    /// <summary>true и переведённая запись, если сейчас реально наведено на боевое/ремесленное умение на хотбаре - только DetailKind Action/CraftingAction, иначе (Materia Extraction и т.п.) ActionId живёт в чужом пространстве ID.</summary>
+    private bool TryGetHoveredEntry(out TranslationEntry entry)
     {
-        if (currentValue is not { } current)
-            return;
+        entry = null!;
 
         var hovered = gameGui.HoveredAction;
         if (hovered.ActionId == 0 ||
             (hovered.DetailKind != DetailKind.Action && hovered.DetailKind != DetailKind.CraftingAction))
         {
-            return;
+            return false;
         }
 
-        if (!repository.TryGetByActionId(hovered.ActionId, out var byId) || byId.Count == 0)
-            return;
+        if (!repository.TryGetByActionId(hovered.ActionId, out var byId) || byId.Count == 0 || string.IsNullOrEmpty(byId[0].Content))
+            return false;
 
-        if (ReferenceEquals(byId[0], current.Entry))
-            lastSeenTicksMs = Environment.TickCount64;
+        if (ExcludedAbilityNames.Contains(byId[0].EnglishName))
+            return false;
+
+        entry = byId[0];
+        return true;
     }
 
     /// <summary>Перерегистрирует слушатели под текущий Configuration.TargetAddonNames - вызывать после изменения настроек.</summary>
@@ -120,42 +135,27 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             if (addon is null || !addon->IsVisible)
                 return;
 
-            TranslationEntry? entry = null;
-
-            // DetailKind обязателен: у системных команд (Materia Extraction, роулетки и т.п.)
-            // ActionId живёт в своём пространстве ID и может случайно совпасть с ID умения.
-            var hovered = gameGui.HoveredAction;
-            if (hovered.ActionId != 0 &&
-                (hovered.DetailKind == DetailKind.Action || hovered.DetailKind == DetailKind.CraftingAction) &&
-                repository.TryGetByActionId(hovered.ActionId, out var byId) && byId.Count > 0)
+            // Хотбар - прямой сигнал уже есть (TryGetHoveredEntry), тут только прячем родное окно.
+            if (TryGetHoveredEntry(out _))
             {
-                entry = byId[0];
-            }
-
-            if (entry is null)
-            {
-                // Панель вроде "Actions & Traits" - ищем ноду с известным названием умения.
-                foreach (var text in EnumerateTextNodes(addon))
-                {
-                    if (string.IsNullOrWhiteSpace(text))
-                        continue;
-                    if (!repository.TryGetByEnglishName(text, out var byName) || byName.Count == 0)
-                        continue;
-
-                    entry = byName[0];
-                    break;
-                }
-            }
-
-            if (entry is not null && !string.IsNullOrEmpty(entry.Content))
-            {
-                currentValue = new HoverInfo(entry);
-                lastSeenTicksMs = Environment.TickCount64;
-
-                // Прячем только когда для умения есть перевод; в остальных случаях (Materia
-                // Extraction, Repair и т.п. - тот же переиспользуемый попап) не трогаем - игра
-                // сама выставит IsVisible = true, когда окно снова понадобится ей самой.
                 addon->IsVisible = false;
+                return;
+            }
+
+            // Панель вроде "Actions & Traits" - ищем ноду с известным названием умения.
+            foreach (var text in EnumerateTextNodes(addon))
+            {
+                if (string.IsNullOrWhiteSpace(text))
+                    continue;
+                if (!repository.TryGetByEnglishName(text, out var byName) || byName.Count == 0 || string.IsNullOrEmpty(byName[0].Content))
+                    continue;
+                if (ExcludedAbilityNames.Contains(byName[0].EnglishName))
+                    continue;
+
+                panelEntry = byName[0];
+                panelSeenTicksMs = Environment.TickCount64;
+                addon->IsVisible = false;
+                return;
             }
         }
         catch (Exception ex)
