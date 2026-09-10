@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
 using Dalamud.Plugin.Services;
+using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVJobGuideRUTranslator.Hooks;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
@@ -71,6 +72,18 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
         };
         textNode.AttachNode(this);
 
+        // По умолчанию AtkTextNode переноса по словам не делает вообще (проверено на живом
+        // клиенте - см. историю правок: GetTextDrawSize() возвращал однострочную ширину в
+        // несколько раз больше TextWrapWidth, то есть перенос не применялся). WordWrap+MultiLine
+        // включают перенос в пределах уже выставленной выше ширины (Width), AutoAdjustNodeSize
+        // заставляет игру саму пересчитать Height ноды под получившееся число строк - этим же
+        // приёмом (только для однострочного авто-размера по ширине) пользуется сам автор
+        // KamiToolKit в VanillaPlus (CurrencyTooltipNode); примера именно с WordWrap в его коде
+        // не нашлось - поведение выведено из названий флагов и семантики AtkTextNode
+        // (FFXIVClientStructs.FFXIV.Component.GUI.TextFlags). Если после теста высота/ширина
+        // ноды в логе выглядят не так - см. актуальные исходники FFXIVClientStructs.
+        textNode.TextFlags = TextFlags.WordWrap | TextFlags.MultiLine | TextFlags.AutoAdjustNodeSize;
+
         IsVisible = false;
 
         LogStateChange("создана, ждёт первого кадра");
@@ -117,15 +130,15 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
         // преобразование из string, которое не удалось подтвердить в исходниках.
         textNode.String = new SeStringBuilder().Append(info.Entry.Content!).ToReadOnlySeString();
 
-        // Ширина уже выставлена (TextWrapWidth) в конструкторе - GetTextDrawSize должен посчитать
-        // высоту с учётом переноса по этой ширине. Не проверено на живом клиенте: если перенос
-        // не работает (текст вылезает за TextWrapWidth по горизонтали) - в IntelliSense поищите
-        // свойство переноса (WrapMode/TextFlags) у TextNode и выставьте его явно.
-        var textSize = textNode.GetTextDrawSize();
-        textNode.Size = new Vector2(TextWrapWidth, textSize.Y);
+        // GetTextDrawSize() тут намеренно НЕ используется - это "естественная" однострочная
+        // ширина текста без учёта переноса (см. исходник TextNode.GetTextDrawSize -> нативный
+        // Node->GetTextDrawSize), она не отражает реальный перенесённый по словам текст.
+        // TextFlags.AutoAdjustNodeSize (выставлен в конструкторе вместе с WordWrap/MultiLine)
+        // заставляет саму игру пересчитать Height ноды сразу по SetText - читаем его напрямую.
+        var textHeight = textNode.Height;
         textNode.Position = new Vector2(PaddingX / 2f, PaddingY / 2f);
 
-        var contentSize = new Vector2(TextWrapWidth, textSize.Y) + new Vector2(PaddingX, PaddingY);
+        var contentSize = new Vector2(TextWrapWidth, textHeight) + new Vector2(PaddingX, PaddingY);
         background.Size = contentSize;
         Size = contentSize;
 
@@ -145,7 +158,7 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
         Position = pos;
         IsVisible = true;
 
-        LogStateChange($"показано: pos={pos} size={contentSize} textSize={textSize} background.IsVisible={background.IsVisible} textNode.IsVisible={textNode.IsVisible}");
+        LogStateChange($"показано: pos={pos} size={contentSize} textNode.Width={textNode.Width} textNode.Height={textHeight} background.IsVisible={background.IsVisible} textNode.IsVisible={textNode.IsVisible}");
     }
 
     private void LogStateChange(string state)

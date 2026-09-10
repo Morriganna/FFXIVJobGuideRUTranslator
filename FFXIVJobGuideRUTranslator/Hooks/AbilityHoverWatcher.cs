@@ -115,7 +115,10 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     public void ApplyRegistrations()
     {
         foreach (var name in registeredAddonNames)
+        {
             addonLifecycle.UnregisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
+            addonLifecycle.UnregisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
+        }
         registeredAddonNames.Clear();
 
         foreach (var rawName in configuration.TargetAddonNames)
@@ -130,16 +133,40 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 continue;
 
             addonLifecycle.RegisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
+            addonLifecycle.RegisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
         }
 
         log.Information($"[JobGuideRU] Слушаю аддоны: {string.Join(", ", registeredAddonNames)}");
     }
 
-    private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
+    /// <summary>
+    /// Только для нативного оверлея (Configuration.UseNativeTranslationWindow): прячет родную
+    /// подсказку ДО отрисовки этого же кадра, а не постфактум. Раньше (см. историю правок)
+    /// прятанье (addon->IsVisible = false) делалось в PostDraw - это на кадр ПОЗЖЕ момента, когда
+    /// игра уже нарисовала окно видимым, и если игра сама периодически заново выставляет
+    /// IsVisible = true, пока курсор ещё наведён (судя по логу - именно так и происходит), окно
+    /// успевает мигнуть видимым каждый такой раз. PreDraw срабатывает непосредственно перед
+    /// отрисовкой ЭТОГО кадра - выставленное здесь IsVisible = false гарантированно долетает до
+    /// рендера, независимо от того, что выставила игра раньше в этом же кадре.
+    /// </summary>
+    private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
-        if (!configuration.Enabled)
+        if (!configuration.Enabled || !configuration.UseNativeTranslationWindow)
             return;
 
+        ProcessAddon(args, hideIfMatched: true);
+    }
+
+    private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
+    {
+        if (!configuration.Enabled || configuration.UseNativeTranslationWindow)
+            return; // в нативном режиме всё уже сделано в OnAddonPreDraw
+
+        ProcessAddon(args, hideIfMatched: false);
+    }
+
+    private void ProcessAddon(AddonArgs args, bool hideIfMatched)
+    {
         try
         {
             // args.Addon - это AtkUnitBasePtr (обёртка без прямой зависимости от ClientStructs),
@@ -165,6 +192,8 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             {
                 // Окно вроде "Actions & Traits": ищем ноду с названием умения среди известных
                 // нам названий. Только читаем текст нод, ничего не меняем и не сохраняем адреса.
+                // Текстовые ноды уже заполнены игрой к этому моменту (данные обновляются в Update,
+                // до Draw) - работает одинаково что в PreDraw, что в PostDraw.
                 foreach (var text in EnumerateTextNodes(addon))
                 {
                     if (string.IsNullOrWhiteSpace(text))
@@ -202,7 +231,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 // этом не трогаются вообще, только IsVisible всего окна. В любой другой момент
                 // (другое использование этого же попапа - Materia Extraction и т.п., или умение
                 // без перевода) addon->IsVisible никак не меняем - родное окно ведёт себя как обычно.
-                if (configuration.UseNativeTranslationWindow)
+                if (hideIfMatched)
                     addon->IsVisible = false;
             }
         }
@@ -391,7 +420,10 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     public void Dispose()
     {
         foreach (var name in registeredAddonNames)
+        {
             addonLifecycle.UnregisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
+            addonLifecycle.UnregisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
+        }
         registeredAddonNames.Clear();
     }
 }
