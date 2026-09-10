@@ -193,10 +193,9 @@ public static class TranslationOverlay
                 var uv0 = new Vector2((bg.U + srcX[col]) / bg.TextureWidth, (bg.V + srcY[row]) / bg.TextureHeight);
                 var uv1 = new Vector2((bg.U + srcX[col + 1]) / bg.TextureWidth, (bg.V + srcY[row + 1]) / bg.TextureHeight);
 
-                // bg.TextureId - nint (D3D11ShaderResourceView*). Если эта строка не компилируется
-                // из-за типа текстуры, попробуйте явный каст: (ImTextureID)bg.TextureId либо
-                // new ImTextureID(bg.TextureId) - конкретное имя типа зависит от версии биндинга.
-                drawList.AddImage(bg.TextureId, p0, p1, uv0, uv1);
+                // ImTextureID - readonly struct-обёртка над ulong-хэндлом, неявного преобразования
+                // из nint нет (только явный конструктор) - оборачиваем явно.
+                drawList.AddImage(new ImTextureID(bg.TextureId), p0, p1, uv0, uv1);
             }
         }
     }
