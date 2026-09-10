@@ -19,14 +19,12 @@ namespace FFXIVJobGuideRUTranslator.Windows;
 /// то, почему это не сработало). Окно ImGui само разворачивается под любой объём текста, ничего
 /// в памяти игры не трогает и в принципе не может сломать её UI.
 ///
-/// Оформление - по макету "Ability Tooltip ImGui" (Claude Design, вторая версия, см. историю
-/// правок): плашка-эйбрау (цветная риска + классификация + код работы), иконка+имя+уровень,
-/// сетка из 4 статов (Каст/Восст./Дальность/Радиус - см. ActionStats), дальше текст перевода, а
-/// строки вида "Метка: значение" (Продолжительность/Дополнительный эффект/Стоимость/Комбо...)
-/// вынесены из абзаца в отдельные карточки с цветной полоской слева, по категориям (см.
-/// RowCategories) - вместо инлайн-подсветки внутри сплошного текста, как раньше. Часть элементов
-/// макета (градиенты, тени, отдельный "лёгкий" шрифт) переданы приближённо - настолько, насколько
-/// это возможно средствами ImGui (см. заголовок задачи в истории правок).
+/// Оформление - по третьей версии макета "Ability Tooltip ImGui" (Claude Design, см. историю
+/// правок - первые две не прижились: заголовок-инспектор был избыточным, карточки-строки с
+/// цветными полосками - лишней сложностью). Эта версия проще: иконка+имя+классификация+
+/// дальность/радиус сверху, Каст/Восстановление одной строкой, разделитель, текст перевода (где
+/// "структурные" метки вроде "Продолжительность:"/"Стоимость:" красятся зелёным прямо в потоке
+/// текста, без отдельных карточек), ещё разделитель, "Получено"/"Работы" снизу.
 /// </summary>
 public static class TranslationOverlay
 {
@@ -34,12 +32,12 @@ public static class TranslationOverlay
     // равен 1. На более высоком разрешении окно целиком (шрифт, отступы, перенос строк)
     // пропорционально увеличивается, иначе на 1440p/4K оно выглядит нечитаемо мелким рядом с
     // родной подсказкой игры, которая масштабируется вместе с игровым UI.
-    private const float BaseWrapWidth = 260f;
+    private const float BaseWrapWidth = 280f;
     private const float BaseMargin = 8f;
     private const float BaseGap = 6f; // расстояние между родным окном и нашим
-    private const float BaseWindowPaddingX = 10f;
-    private const float BaseWindowPaddingY = 8f;
-    private const float BaseItemSpacing = 3f;
+    private const float BaseWindowPaddingX = 14f;
+    private const float BaseWindowPaddingY = 12f;
+    private const float BaseItemSpacing = 4f;
     private const float IconSize = 40f;
 
     // Не даём окну ужаться мельче исходного расчёта (на совсем маленьких/низких разрешениях) и
@@ -50,40 +48,46 @@ public static class TranslationOverlay
     private static Vector4 Hex(int r, int g, int b, float a = 1f) => new(r / 255f, g / 255f, b / 255f, a);
 
     // Цвета - один в один из hex-значений макета "Ability Tooltip ImGui" (см. доккомментарий класса).
-    private static readonly Vector4 WindowBgColor = Hex(0x10, 0x12, 0x15, 0.97f);
-    private static readonly Vector4 BorderColor = Hex(0x2c, 0x32, 0x38);
-    private static readonly Vector4 HeaderTopColor = Hex(0x1b, 0x28, 0x36);
-    private static readonly Vector4 HeaderBottomColor = Hex(0x14, 0x1c, 0x26);
-    private static readonly Vector4 EyebrowColor = Hex(0xcf, 0xd6, 0xde);
-    private static readonly Vector4 LabelColor = Hex(0x8c, 0x95, 0x9e); // классификация/job/статы/метки строк
-    private static readonly Vector4 TitleColor = Hex(0xe8, 0xea, 0xed);
-    private static readonly Vector4 BodyColor = Hex(0xcd, 0xd3, 0xd9);
-    private static readonly Vector4 SeparatorColor = Hex(0x23, 0x29, 0x2f);
-    private static readonly Vector4 RowBgColor = Hex(0x16, 0x1b, 0x21);
-    private static readonly Vector4 FooterColor = Hex(0x6d, 0x76, 0x81);
+    private static readonly Vector4 WindowBgColor = Hex(0x0a, 0x0c, 0x10, 0.94f);
+    private static readonly Vector4 BorderColor = Hex(0x6a, 0x75, 0x80);
+    private static readonly Vector4 SeparatorColor = Hex(0x4c, 0x55, 0x5f);
+    private static readonly Vector4 TextColor = Hex(0xf0, 0xf0, 0xf0); // имя, значения Каст/Восст., тело текста
+    private static readonly Vector4 LabelColor = Hex(0xa7, 0xae, 0xb5); // классификация/дальность-радиус/подписи
+    private static readonly Vector4 AccentGold = Hex(0xe8, 0xc9, 0x8a); // названия умений/статусов внутри текста
+    private static readonly Vector4 LineLabelGreen = Hex(0x8f, 0xd4, 0x8a); // "Продолжительность:"/"Стоимость:" и т.п., "Ур. N"
 
-    // Акцент по умолчанию из макета (гербовая риска в шапке + подсветка названий умений/статусов
-    // прямо в тексте) - плюс три доп. цвета карточек-строк (см. RowCategories), тоже из макета.
-    private static readonly Vector4 AccentGold = Hex(0xd8, 0xa9, 0x5c);
-    private static readonly Vector4 RowGreen = Hex(0x5f, 0x8f, 0x5c);
-    private static readonly Vector4 RowPurple = Hex(0x7a, 0x5f, 0x8f);
-    private static readonly Vector4 RowBlue = Hex(0x6f, 0xa8, 0xdc);
-
-    // Какие "структурные" метки описания выносятся из абзаца в отдельную карточку-строку, и каким
-    // цветом красится полоска слева у каждой категории. Раньше (до макета) это была одна плоская
-    // подсветка внутри сплошного текста - см. историю правок.
-    private static readonly (string[] Prefixes, Vector4 Bar)[] RowCategories =
+    // Все эти строки в оригинале красятся одинаково: зелёное всё ДО ПЕРВОГО двоеточия включительно
+    // (сама метка, плюс переменное название статуса/шкалы, если оно есть, например "Стоимость
+    // Angler's Art:", "Сила под эффектом Divine Might:" - оно тоже зелёное, без отдельного
+    // золотого вырезания, раз это часть составной метки, а не самостоятельно упомянутая вещь).
+    // Всё, что ПОСЛЕ двоеточия - описание эффекта, число, время и т.п. - обычным текстом; конкретное
+    // название умения/статуса внутри этой части (если есть) всё равно вырезается и красится
+    // отдельным золотым цветом - см. Tokenize.
+    private static readonly string[] LabelOnlyAccentPrefixes =
     {
-        (new[] { "Продолжительность", "Длительность" }, RowGreen),
-        (new[] { "Дополнительные эффекты", "Дополнительный эффект" }, AccentGold),
-        (new[] { "Стоимость" }, RowPurple),
-        (new[] { "Комбо умение", "Комбо-действие", "Комбо бонус", "Бонус комбо" }, RowBlue),
-        (new[] { "Сила", "Первое использование", "Второе использование", "Третье использование", "Четвёртое использование" }, RowGreen),
+        "Продолжительность",
+        "Длительность",
+        "Сила",
+        "Стоимость",
+        "Дополнительные эффекты",
+        "Дополнительный эффект",
+        "Комбо умение",
+        "Комбо-действие",
+        "Комбо бонус",
+        "Бонус комбо",
+        // "First Use:"/"Second Use:"/"Third Use:" (шкала эффектов повторного использования, как
+        // у Modest Lure и подобных DoL-умений) - та же категория "метка зелёная, значение обычное".
+        "Первое использование",
+        "Второе использование",
+        "Третье использование",
+        "Четвёртое использование",
     };
 
     // Составные метки вида "Эффект <Название статуса>:" (например "Эффект Knight's Resolve:") -
-    // конкретное название заранее не известно, поэтому не префикс, а регулярное выражение; той же
-    // категории, что "Дополнительный эффект" (золотая полоска).
+    // конкретное название заранее не известно (это не отдельное умение, а статус, произведённый от
+    // него), но сама метка (включая название) целиком зелёная - как и у LabelOnlyAccentPrefixes.
+    // Важно: после "Эффект" сразу должно идти капитализированное английское название И двоеточие -
+    // иначе это просто обычное предложение ("Эффект заканчивается после..."), не метка.
     private static readonly Regex EffectOfNamedStatusRegex =
         new(@"^Эффект\s+[A-Z][a-zA-Z']*(?:\s+[A-Z][a-zA-Z']*)*:", RegexOptions.Compiled);
 
@@ -102,10 +106,8 @@ public static class TranslationOverlay
 
     // Размер окна с ПРЕДЫДУЩЕГО кадра - используется, чтобы решить, куда его поместить сейчас
     // (ImGui не знает размер AlwaysAutoResize-окна заранее, до отрисовки). Отставание на один
-    // кадр незаметно глазу. Та же идея - для фона каждой карточки-строки (см. DrawRow):
-    // высота её содержимого (перенос по словам) тоже не известна заранее.
-    private static Vector2 lastSize = new(260, 80);
-    private static readonly Dictionary<string, float> lastRowHeights = new();
+    // кадр незаметно глазу.
+    private static Vector2 lastSize = new(280, 80);
 
     private static IFontHandle? bodyFontHandle;
 
@@ -145,7 +147,7 @@ public static class TranslationOverlay
         var info = hover.Value;
         // Есть, только если ActionId точно принадлежит листу Action (боевое умение) - см.
         // TranslationRepository.ActionStatsById/ActionStatsLookup. Для крафта/сбора (CraftAction)
-        // или неразрешённых записей - null, тогда просто не рисуем иконку/статы/сетку.
+        // или неразрешённых записей - null, тогда просто не рисуем иконку/статы/подвал.
         var hasStats = repository.ActionStatsById.TryGetValue(info.Entry.ActionId, out var stats);
 
         var display = ImGui.GetIO().DisplaySize;
@@ -174,16 +176,12 @@ public static class TranslationOverlay
         ImGui.PushStyleColor(ImGuiCol.WindowBg, WindowBgColor);
         ImGui.PushStyleColor(ImGuiCol.Border, BorderColor);
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
-        ImGui.PushStyleColor(ImGuiCol.TableBorderLight, SeparatorColor);
-        ImGui.PushStyleColor(ImGuiCol.TableBorderStrong, SeparatorColor);
+        ImGui.PushStyleColor(ImGuiCol.Text, TextColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(BaseWindowPaddingX * scale, BaseWindowPaddingY * scale));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
-        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 3f * scale); // как border-radius:3px в макете
+        ImGui.PushStyleVar(ImGuiStyleVar.WindowRounding, 5f * scale); // как border-radius:5px в макете
         ImGui.PushStyleVar(ImGuiStyleVar.ItemSpacing, new Vector2(BaseItemSpacing * scale, BaseItemSpacing * scale));
-        ImGui.PushStyleVar(ImGuiStyleVar.CellPadding, new Vector2(8f * scale, 6f * scale));
 
-        // NoTitleBar - в этой версии макета заголовок ("ABILITY"/эйбрау-плашка) нарисован вручную
-        // внутри тела окна, а не через штатный заголовок ImGui (в отличие от предыдущей версии).
         const ImGuiWindowFlags flags = ImGuiWindowFlags.NoTitleBar
                                         | ImGuiWindowFlags.NoResize
                                         | ImGuiWindowFlags.NoMove
@@ -202,92 +200,36 @@ public static class TranslationOverlay
             // немасштабированному размеру шрифта и разъедется с реальной шириной глифов.
             ImGui.SetWindowFontScale(scale);
 
-            var jobAbbreviation = hasStats && stats.Jobs.Count == 1 ? stats.Jobs[0] : null;
-            DrawEyebrowBar(info.Entry.Classification, jobAbbreviation, scale);
+            DrawHeader(info.Entry, hasStats ? stats : null, textureProvider, scale);
+
+            if (hasStats)
+                DrawCastRecastRow(stats, scale);
 
             ImGui.Spacing();
-            DrawIdentityRow(info.Entry.EnglishName, hasStats ? stats : null, textureProvider, scale);
+            ImGui.Separator();
+            ImGui.Spacing();
+
+            foreach (var line in info.Entry.Content!.Split('\n'))
+                DrawLine(line, scale);
 
             if (hasStats)
             {
                 ImGui.Spacing();
                 ImGui.Separator();
-                DrawStatsGrid(stats, scale);
-            }
-
-            ImGui.Separator();
-            ImGui.Spacing();
-
-            // Строки-метки ("Продолжительность:"/"Стоимость:" и т.п.) выносятся из потока в
-            // отдельные карточки (см. RowCategories) - остальные строки остаются сплошным абзацем.
-            var rows = new List<(string Label, string Value, Vector4 Bar)>();
-            foreach (var line in info.Entry.Content!.Split('\n'))
-            {
-                if (TryGetRow(line, out var label, out var value, out var bar))
-                    rows.Add((label, value, bar));
-                else
-                    DrawLine(line, scale);
-            }
-
-            if (rows.Count > 0)
-            {
                 ImGui.Spacing();
-                foreach (var row in rows)
-                    DrawRow(row.Label, row.Value, row.Bar, scale);
+                DrawFooter(stats, scale);
             }
-
-            ImGui.Spacing();
-            ImGui.SetWindowFontScale(scale * 0.78f);
-            ImGui.TextColored(FooterColor, "JobGuideRU · перевод");
-            ImGui.SetWindowFontScale(scale);
 
             lastSize = ImGui.GetWindowSize();
         }
 
         ImGui.End();
-        ImGui.PopStyleVar(5);
-        ImGui.PopStyleColor(5);
+        ImGui.PopStyleVar(4);
+        ImGui.PopStyleColor(4);
     }
 
-    /// <summary>
-    /// Цветная риска + классификация ("Способность"/"Боевой навык"...) слева, код работы (если
-    /// умение принадлежит ровно одной) - справа. Фон - вертикальный градиент, как в макете
-    /// (AddRectFilledMultiColor), нарисован вручную поверх обычного фона окна.
-    /// </summary>
-    private static void DrawEyebrowBar(string? classification, string? jobAbbreviation, float scale)
-    {
-        var drawList = ImGui.GetWindowDrawList();
-        var padX = 8f * scale;
-        var padY = 5f * scale;
-        var avail = ImGui.GetContentRegionAvail().X;
-        var barHeight = ImGui.GetTextLineHeight() + padY * 2f;
-        var pos = ImGui.GetCursorScreenPos();
-
-        drawList.AddRectFilledMultiColor(
-            pos, pos + new Vector2(avail, barHeight),
-            ImGui.ColorConvertFloat4ToU32(HeaderTopColor), ImGui.ColorConvertFloat4ToU32(HeaderTopColor),
-            ImGui.ColorConvertFloat4ToU32(HeaderBottomColor), ImGui.ColorConvertFloat4ToU32(HeaderBottomColor));
-
-        var tickWidth = 3f * scale;
-        drawList.AddRectFilled(
-            pos + new Vector2(padX * 0.5f, padY * 0.6f), pos + new Vector2(padX * 0.5f + tickWidth, barHeight - padY * 0.6f),
-            ImGui.ColorConvertFloat4ToU32(AccentGold));
-
-        ImGui.SetCursorScreenPos(pos + new Vector2(padX * 0.5f + tickWidth + padX, padY));
-        ImGui.TextColored(EyebrowColor, (classification ?? "Умение").ToUpperInvariant());
-
-        if (!string.IsNullOrEmpty(jobAbbreviation))
-        {
-            var jobWidth = ImGui.CalcTextSize(jobAbbreviation).X;
-            ImGui.SetCursorScreenPos(pos + new Vector2(avail - padX - jobWidth, padY));
-            ImGui.TextColored(LabelColor, jobAbbreviation);
-        }
-
-        ImGui.SetCursorScreenPos(pos + new Vector2(0, barHeight));
-    }
-
-    /// <summary>Иконка умения (если известна) + название + уровень получения.</summary>
-    private static void DrawIdentityRow(string englishName, ActionStats? stats, ITextureProvider textureProvider, float scale)
+    /// <summary>Иконка + название + классификация (слева) и Дальность/Радиус (справа) на одной строке под именем.</summary>
+    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, ITextureProvider textureProvider, float scale)
     {
         if (stats is { } s)
         {
@@ -298,117 +240,105 @@ public static class TranslationOverlay
         }
 
         ImGui.BeginGroup();
-        ImGui.SetWindowFontScale(scale * 1.45f);
-        ImGui.TextColored(TitleColor, englishName);
+
+        ImGui.SetWindowFontScale(scale * 1.3f);
+        ImGui.TextUnformatted(entry.EnglishName);
         ImGui.SetWindowFontScale(scale);
 
-        if (stats is { } s2)
-            ImGui.TextColored(LabelColor, $"Ур. {s2.Level}");
-
-        ImGui.EndGroup();
-    }
-
-    /// <summary>Сетка из 4 колонок - Каст/Восст./Дальность/Радиус (см. ActionStats) - языко-независимые числа, не переводятся.</summary>
-    private static void DrawStatsGrid(ActionStats stats, float scale)
-    {
-        if (!ImGui.BeginTable("##jgru_stats_grid", 4, ImGuiTableFlags.Borders | ImGuiTableFlags.SizingStretchSame))
-            return;
-
-        ImGui.TableNextRow();
-        DrawStatCell("КАСТ", stats.CastHundredMs == 0 ? "Мгнов." : FormatSeconds(stats.CastHundredMs));
-        DrawStatCell("ВОССТ.", FormatSeconds(stats.RecastHundredMs));
-        DrawStatCell("ДАЛЬНОСТЬ", FormatYalms(stats.Range));
-        DrawStatCell("РАДИУС", FormatYalms(stats.Radius));
-
-        ImGui.EndTable();
-
-        void DrawStatCell(string label, string value)
+        var rangeText = stats is { } s2 ? $"Дальность {FormatYalms(s2.Range)} · Радиус {FormatYalms(s2.Radius)}" : null;
+        if (!string.IsNullOrEmpty(entry.Classification))
+            ImGui.TextColored(LabelColor, entry.Classification);
+        if (rangeText is not null)
         {
-            ImGui.TableNextColumn();
-            ImGui.SetWindowFontScale(scale * 0.82f);
-            ImGui.TextColored(LabelColor, label);
-            ImGui.SetWindowFontScale(scale);
-            ImGui.TextColored(BodyColor, value);
+            if (!string.IsNullOrEmpty(entry.Classification))
+                ImGui.SameLine();
+            var rangeWidth = ImGui.CalcTextSize(rangeText).X;
+            ImGui.SameLine(Math.Max(ImGui.GetCursorPosX(), BaseWrapWidth * scale - rangeWidth));
+            ImGui.TextColored(LabelColor, rangeText);
         }
+
+        ImGui.EndGroup();
     }
 
-    /// <summary>
-    /// Карточка-строка "метка / значение" с цветной полоской слева (см. RowCategories). Фон и
-    /// высота полоски берутся с ПРЕДЫДУЩЕГО кадра для этой же метки (см. lastRowHeights) - точная
-    /// высота содержимого (перенос значения по словам) известна только постфактум, тот же приём,
-    /// что и lastSize для всего окна.
-    /// </summary>
-    private static void DrawRow(string label, string value, Vector4 bar, float scale)
+    /// <summary>"Каст Мгновенная    Восстановление 5.00 сек." одной строкой - см. ActionStats.</summary>
+    private static void DrawCastRecastRow(ActionStats stats, float scale)
     {
-        var drawList = ImGui.GetWindowDrawList();
-        var padX = 8f * scale;
-        var padY = 4f * scale;
-        var barWidth = 2.5f * scale;
-        var avail = ImGui.GetContentRegionAvail().X;
-        var startScreenPos = ImGui.GetCursorScreenPos();
+        ImGui.TextColored(LabelColor, "Каст");
+        ImGui.SameLine();
+        ImGui.TextUnformatted(stats.CastHundredMs == 0 ? "Мгновенная" : FormatSeconds(stats.CastHundredMs));
 
-        var estimatedHeight = lastRowHeights.TryGetValue(label, out var h) ? h : ImGui.GetTextLineHeightWithSpacing() * 2f;
+        ImGui.SameLine(150f * scale);
+        ImGui.TextColored(LabelColor, "Восстановление");
+        ImGui.SameLine();
+        ImGui.TextUnformatted(FormatSeconds(stats.RecastHundredMs));
+    }
 
-        drawList.AddRectFilled(startScreenPos, startScreenPos + new Vector2(avail, estimatedHeight), ImGui.ColorConvertFloat4ToU32(RowBgColor));
-        drawList.AddRectFilled(startScreenPos, startScreenPos + new Vector2(barWidth, estimatedHeight), ImGui.ColorConvertFloat4ToU32(bar));
+    /// <summary>"Получено: RPR Ур. N" / "Работы: RPR SAM ..." - см. ActionStats.</summary>
+    private static void DrawFooter(ActionStats stats, float scale)
+    {
+        ImGui.TextColored(LabelColor, "Получено:");
+        ImGui.SameLine();
+        ImGui.TextUnformatted(stats.Jobs.Count > 0 ? stats.Jobs[0] : "-");
+        ImGui.SameLine();
+        ImGui.TextColored(LineLabelGreen, $"Ур. {stats.Level}");
 
-        ImGui.SetCursorScreenPos(startScreenPos + new Vector2(barWidth + padX, padY));
-        ImGui.BeginGroup();
-        ImGui.TextColored(LabelColor, label);
-        RenderLineTokens(Tokenize(value, BodyColor), BaseWrapWidth * scale - barWidth - padX);
-        ImGui.EndGroup();
-
-        var contentHeight = ImGui.GetItemRectMax().Y - startScreenPos.Y + padY;
-        lastRowHeights[label] = contentHeight;
-
-        ImGui.SetCursorScreenPos(startScreenPos + new Vector2(0, Math.Max(estimatedHeight, contentHeight)));
-        ImGui.Dummy(new Vector2(avail, 1f * scale)); // маленький зазор перед следующей карточкой
+        if (stats.Jobs.Count > 0)
+        {
+            ImGui.TextColored(LabelColor, "Работы:");
+            ImGui.SameLine();
+            RenderLineTokens(new List<Token> { new(string.Join("  ", stats.Jobs), TextColor) }, BaseWrapWidth * scale);
+        }
     }
 
     private static string FormatSeconds(int hundredMs) => (hundredMs / 10f).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture) + " сек.";
 
     private static string FormatYalms(int range) => range < 0 ? "-" : range + "y";
 
-    /// <summary>Строка вида "Метка: значение" из известной категории (см. RowCategories/EffectOfNamedStatusRegex) - или false, если строка обычный текст абзаца.</summary>
-    private static bool TryGetRow(string line, out string label, out string value, out Vector4 bar)
+    /// <summary>
+    /// Рисует одну строку описания. Если строка начинается с одной из "структурных" меток
+    /// (Продолжительность/Дополнительный эффект/Комбо/Сила/Стоимость/"Эффект Х:") - зелёным
+    /// красится только сама метка, до двоеточия включительно (туда же попадает и переменное
+    /// название статуса, если оно есть); всё, что после двоеточия, и любые прочие строки - обычным
+    /// текстом. В любом случае конкретные названия умений/статусов внутри строки (остаются на
+    /// английском) вырезаются и красятся золотым - см. Tokenize. Перенос строк - вручную, по
+    /// словам (а не через PushTextWrapPos) - иначе разноцветные куски одного абзаца "залипают" на
+    /// отступе первого куска при переносе.
+    /// </summary>
+    private static void DrawLine(string line, float scale)
     {
-        foreach (var (prefixes, color) in RowCategories)
+        var tokens = ComputeLineTokens(line);
+        RenderLineTokens(tokens, BaseWrapWidth * scale);
+    }
+
+    /// <summary>Решает, как разбить и раскрасить строку - см. комментарии у LabelOnlyAccentPrefixes/EffectOfNamedStatusRegex.</summary>
+    private static List<Token> ComputeLineTokens(string line)
+    {
+        var labelLength = FindGreenLabelLength(line);
+        if (labelLength > 0)
         {
-            foreach (var prefix in prefixes)
-            {
-                if (!line.StartsWith(prefix, StringComparison.Ordinal))
-                    continue;
+            var tokens = new List<Token> { new(line[..labelLength], LineLabelGreen) };
+            tokens.AddRange(Tokenize(line[labelLength..], TextColor));
+            return tokens;
+        }
 
-                var colonIndex = line.IndexOf(':');
-                if (colonIndex < 0)
-                    continue;
+        return Tokenize(line, TextColor);
+    }
 
-                label = line[..colonIndex].Trim();
-                value = line[(colonIndex + 1)..].Trim();
-                bar = color;
-                return true;
-            }
+    /// <summary>Длина зелёной части строки (от начала до включённого двоеточия), или 0, если строка не относится ни к одной "зелёной" категории.</summary>
+    private static int FindGreenLabelLength(string line)
+    {
+        foreach (var prefix in LabelOnlyAccentPrefixes)
+        {
+            if (!line.StartsWith(prefix, StringComparison.Ordinal))
+                continue;
+            var colonIndex = line.IndexOf(':');
+            if (colonIndex >= 0)
+                return colonIndex + 1;
         }
 
         var effectMatch = EffectOfNamedStatusRegex.Match(line);
-        if (effectMatch.Success)
-        {
-            var colonIndex = effectMatch.Length - 1; // сам regex заканчивается на ':'
-            label = line[..colonIndex].Trim();
-            value = line[(colonIndex + 1)..].Trim();
-            bar = AccentGold;
-            return true;
-        }
-
-        label = string.Empty;
-        value = string.Empty;
-        bar = default;
-        return false;
+        return effectMatch.Success ? effectMatch.Length : 0;
     }
-
-    /// <summary>Рисует одну строку абзаца (не карточку) - перенос вручную, по словам (см. класс), с подсветкой упомянутых внутри названий умений/статусов.</summary>
-    private static void DrawLine(string line, float scale)
-        => RenderLineTokens(Tokenize(line, BodyColor), BaseWrapWidth * scale);
 
     private static void RenderLineTokens(List<Token> tokens, float wrapWidth)
     {
@@ -423,16 +353,7 @@ public static class TranslationOverlay
                 return;
 
             var width = ImGui.CalcTextSize(text).X;
-            // glueWidth - ширина следующего токена, если этот токен - открывающая скобка "(" без
-            // пробела перед содержимым: без неё "(" сама по себе маленькая и легко помещается в
-            // конец строки, а вот следующее слово (название умения в скобках и т.п.) уже не
-            // помещается и переносится само по себе, отделяясь от открывающей скобки. Складывая
-            // сюда ширину следующего токена, переносим их вместе, как единое целое.
             var wraps = !atLineStart && cursorX + width + glueWidth > wrapWidth;
-            // Перенос строки: НЕ вызываем ImGui.NewLine() явно - обычный TextColored сам переводит
-            // курсор на новую строку, если следующий вызов не предварён SameLine(). Явный NewLine()
-            // здесь добавлял бы ВТОРОЙ перевод строки поверх автоматического - отсюда были двойные
-            // интервалы между строками. Просто не зовём SameLine() для этого токена.
             if (wraps)
             {
                 cursorX = 0f;
@@ -453,10 +374,6 @@ public static class TranslationOverlay
         for (var i = 0; i < tokens.Count; i++)
         {
             var token = tokens[i];
-            // Одинокая открывающая скобка (без пробела после - "(Limit Break)") - считаем её
-            // приклеенной к следующему токену для целей переноса, чтобы они не разъезжались
-            // по разным строкам, даже раскрашенные в разные цвета (сама скобка рисуется отдельным
-            // вызовом TextColored, просто перенос решается для обоих сразу).
             var glueWidth = token.Text == "(" && i + 1 < tokens.Count
                 ? ImGui.CalcTextSize(tokens[i + 1].Text).X
                 : 0f;
@@ -469,11 +386,8 @@ public static class TranslationOverlay
 
     /// <summary>
     /// Разбивает текст на токены (слова/пробелы), подсвечивая упомянутые в нём названия умений/
-    /// статусов золотым акцентом (см. AccentGold) - тем же, что и цветная риска в шапке. Изначально
-    /// подсвечивались только точные совпадения с базой переведённых умений, но составные статус-
-    /// эффекты (умение + суффикс вроде "Ready"/"Attunement", например "Confiteor Ready") в базу не
-    /// попадают - там только умения, не статусы. Поскольку почти любой захваченный кусок текста с
-    /// большой буквы в описании умения и так является ссылкой на другое умение/статус (случайных
+    /// статусов золотым (см. AccentGold). Поскольку почти любой захваченный кусок текста с большой
+    /// буквы в описании умения и так является ссылкой на другое умение/статус (случайных
     /// капитализированных английских слов в русском переводе не бывает), подсвечиваются ВСЕ такие
     /// куски одинаково, кроме короткой служебки вроде "HP"/"MP" (её игра просто не выделяет).
     /// </summary>
