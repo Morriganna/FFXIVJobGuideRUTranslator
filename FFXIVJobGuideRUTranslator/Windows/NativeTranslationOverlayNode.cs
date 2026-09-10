@@ -1,6 +1,7 @@
 using System;
 using System.Numerics;
 using Dalamud.Bindings.ImGui;
+using Dalamud.Plugin.Services;
 using FFXIVJobGuideRUTranslator.Hooks;
 using KamiToolKit.Enums;
 using KamiToolKit.Nodes;
@@ -41,13 +42,19 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
 
     private readonly Func<AbilityHoverWatcher.HoverInfo?> hoverProvider;
     private readonly Func<bool> isEnabledProvider;
+    private readonly IPluginLog log;
     private readonly WindowBackgroundTextureNode background;
     private readonly TextNode textNode;
 
-    public NativeTranslationOverlayNode(Func<AbilityHoverWatcher.HoverInfo?> hoverProvider, Func<bool> isEnabledProvider)
+    // Логируем только при СМЕНЕ состояния (не каждый кадр - иначе log-файл раздувается за
+    // секунды, пока курсор наведён) - тот же приём, что в AbilityHoverWatcher.TryGetBackgroundNineGrid.
+    private string? lastLoggedState;
+
+    public NativeTranslationOverlayNode(Func<AbilityHoverWatcher.HoverInfo?> hoverProvider, Func<bool> isEnabledProvider, IPluginLog log)
     {
         this.hoverProvider = hoverProvider;
         this.isEnabledProvider = isEnabledProvider;
+        this.log = log;
 
         // false = обычный (не "выбранный/подсвеченный") вариант текстуры окна - см. исходник
         // WindowBackgroundTextureNode, второй аргумент selectedPath управляет именно этим.
@@ -65,13 +72,32 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
         textNode.AttachNode(this);
 
         IsVisible = false;
+
+        LogStateChange("создана, ждёт первого кадра");
     }
 
     protected override void OnUpdate()
     {
+        try
+        {
+            UpdateCore();
+        }
+        catch (Exception ex)
+        {
+            // OverlayController зовёт OnUpdate каждый кадр вне обычного try/catch, которым обёрнуты
+            // колбэки IAddonLifecycle (см. AbilityHoverWatcher) - ловим сами, чтобы не уронить
+            // обновление вообще всех нод оверлея (не только нашей) необработанным исключением.
+            IsVisible = false;
+            LogStateChange($"ошибка в OnUpdate: {ex}");
+        }
+    }
+
+    private void UpdateCore()
+    {
         if (!isEnabledProvider())
         {
             IsVisible = false;
+            LogStateChange("скрыто (тумблер \"нативное окно\" выключен)");
             return;
         }
 
@@ -79,6 +105,7 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
         if (hover is null || string.IsNullOrEmpty(hover.Value.Entry.Content))
         {
             IsVisible = false;
+            LogStateChange("скрыто (нет наведённого умения с переводом в этом кадре)");
             return;
         }
 
@@ -117,5 +144,16 @@ public sealed unsafe class NativeTranslationOverlayNode : OverlayNode
 
         Position = pos;
         IsVisible = true;
+
+        LogStateChange($"показано: pos={pos} size={contentSize} textSize={textSize} background.IsVisible={background.IsVisible} textNode.IsVisible={textNode.IsVisible}");
+    }
+
+    private void LogStateChange(string state)
+    {
+        if (state == lastLoggedState)
+            return;
+
+        lastLoggedState = state;
+        log.Information($"[JobGuideRU] [нативный оверлей] {state}");
     }
 }

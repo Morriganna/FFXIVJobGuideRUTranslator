@@ -96,6 +96,14 @@ public sealed class Plugin : IDalamudPlugin
 
         overlayController?.Dispose();
 
+        // KamiToolKit подключён обычным PackageReference - его код скомпилирован прямо в нашу
+        // DLL, у каждого плагина, который его использует, своя изолированная копия (см. модель
+        // изоляции плагинов Dalamud). Это НЕ общий на все плагины объект, поэтому чистить за собой
+        // можно и нужно - судя по "leaking hooks" в логе без этого библиотека оставляет за собой
+        // хотя бы один хук. Dispose() (синхронный) требует главного потока - как и весь Dispose()
+        // плагина при обычной выгрузке/перезагрузке из Dalamud.
+        KamiToolKitLibrary.Dispose();
+
         CommandManager.RemoveHandler(CommandName);
     }
 
@@ -138,7 +146,7 @@ public sealed class Plugin : IDalamudPlugin
             await Framework.RunOnFrameworkThread(() =>
             {
                 overlayController = new OverlayController();
-                nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow);
+                nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow, Log);
                 overlayController.AddNode(nativeOverlayNode);
             }).ConfigureAwait(false);
         }
