@@ -241,6 +241,16 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
         if (best is null)
             return Fail($"ни одной NineGrid/Image-ноды в окне не найдено (NineGrid={nineGridCount}, Image={imageCount})");
 
+        // Проверено на живом клиенте (45 кандидатов, включая WindowNode): в ActionDetail нет
+        // ноды, которая правдоподобно выглядела бы как основной фон - самая большая раз за разом
+        // оказывается декоративной полоской 32x4 (area=1384), явно не фон. Похоже, фон здесь -
+        // обычная заливка цветом на уровне ниже нод, до которого не достучаться. Порог отсекает
+        // любые такие мелкие декоративные элементы: пока не найдётся что-то ощутимо крупнее
+        // иконки умения, используем проверенное приближение цветом вместо случайной картинки.
+        const float minPlausibleBackgroundArea = 6000f; // с запасом больше типичной иконки (~40x40=1600)
+        if (bestArea < minPlausibleBackgroundArea)
+            return Fail($"крупнейший кандидат ({best->Type}, area={bestArea}) слишком мал, чтобы быть фоном - похоже, реального фона-текстуры тут нет");
+
         // AtkImageNode и AtkNineGridNode держат PartsList/PartId на одних и тех же полях (хоть у
         // AtkNineGridNode PartId - uint, а у AtkImageNode - ushort), поэтому оба разбираем через
         // общий указатель на AtkNineGridNode - для Image-ноды поля TopOffset и т.п. дальше по
