@@ -43,6 +43,17 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
     // X/Y на AtkResNode - float (позиция с учётом дробного скейла), а не short.
     private readonly record struct NodeInfo(nint Address, float X, float Y, ushort Width, ushort Height, string? Text);
 
+    /// <summary>
+    /// Адрес ноды описания -> английское название умения, для которого мы её последний раз
+    /// подменяли и пересчитывали размер. Нужно, чтобы не выполнять resize/сдвиг соседних нод
+    /// повторно на КАЖДЫЙ кадр (PostDraw срабатывает десятки-сотни раз в секунду): сравнивать
+    /// напрямую текст ноды с уже применённым переводом ненадёжно - игра может слегка
+    /// перенормализовать текст при отображении, из-за чего строковое сравнение никогда бы не
+    /// совпадало, и правки (в т.ч. сдвиг координат) применялись бы заново каждый кадр, раздувая
+    /// окно до бесконечности.
+    /// </summary>
+    private readonly Dictionary<nint, string> lastAppliedEnglishName = new();
+
     public AbilityTextTranslator(
         IAddonLifecycle addonLifecycle,
         IGameGui gameGui,
@@ -141,6 +152,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
     private void ReplaceDescriptionNode(List<NodeInfo> allNodes, TranslationEntry entry)
     {
         // 1) Точное совпадение с английским описанием из данных игры - самый надёжный вариант.
+        //    Работает только пока нода ещё не переведена (текст на английском).
         NodeInfo? target = null;
         if (!string.IsNullOrEmpty(entry.GameEnglishDescription))
         {
@@ -154,17 +166,8 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             }
         }
 
-        // 2) Уже подменяли раньше - текст теперь совпадает с русским переводом, ничего делать не нужно.
-        if (target is null)
-        {
-            foreach (var info in allNodes)
-            {
-                if (info.Text is not null && string.Equals(info.Text.Trim(), entry.Content!.Trim(), StringComparison.Ordinal))
-                    return;
-            }
-        }
-
-        // 3) Резерв: самая длинная текстовая нода в этом окне (описание почти всегда самый длинный текст).
+        // 2) Резерв: самая длинная текстовая нода в этом окне (описание почти всегда самый длинный
+        //    текст) - работает и до, и после перевода, не зависит от языка текста.
         if (target is null)
         {
             var bestLength = -1;
@@ -188,11 +191,18 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         if (target is null)
             return;
 
-        var node = (AtkTextNode*)target.Value.Address;
-        var current = node->NodeText.ToString();
-        if (string.Equals(current.Trim(), entry.Content!.Trim(), StringComparison.Ordinal))
-            return;
+        var address = target.Value.Address;
 
+        // Уже применяли перевод именно этого умения к этой же ноде - выходим сразу, ничего не
+        // трогая (ни SetText, ни resize, ни сдвиг соседей). Именно эта проверка отсутствовала
+        // раньше и приводила к тому, что окно раздувалось на каждом кадре без остановки.
+        if (lastAppliedEnglishName.TryGetValue(address, out var appliedTo) &&
+            string.Equals(appliedTo, entry.EnglishName, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var node = (AtkTextNode*)address;
         var oldY = target.Value.Y;
         var oldHeight = target.Value.Height;
         var oldBottom = oldY + oldHeight;
@@ -200,10 +210,15 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         node->SetText(entry.Content);
         // Пересчитывает Width/Height ноды под уже установленный текст (перенос строк по ширине сохраняется).
         node->ResizeNodeForCurrentText();
+        lastAppliedEnglishName[address] = entry.EnglishName;
 
         var resizedNode = (AtkResNode*)node;
         var delta = resizedNode->Height - oldHeight;
-        if (delta == 0)
+
+        // Защита на случай, если ResizeNodeForCurrentText() в конкретной версии игры повёл себя
+        // не так, как ожидалось (например, здесь же меряется контейнер, а не сама текстовая нода) -
+        // не позволяем одному кадру раздуть окно на неадекватную величину.
+        if (delta is 0 or < -2000 or > 2000)
             return;
 
         // Русский перевод почти всегда длиннее английского оригинала и не помещается в исходную
