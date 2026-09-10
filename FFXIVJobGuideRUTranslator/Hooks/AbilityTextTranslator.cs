@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Dalamud.Game.Addon.Lifecycle;
 using Dalamud.Game.Addon.Lifecycle.AddonArgTypes;
+using Dalamud.Game.Gui;
 using Dalamud.Plugin.Services;
 using FFXIVClientStructs.FFXIV.Component.GUI;
 using FFXIVJobGuideRUTranslator.Data;
@@ -10,25 +11,30 @@ namespace FFXIVJobGuideRUTranslator.Hooks;
 
 /// <summary>
 /// Подменяет ТОЛЬКО текст описания умения (поле content из перевода) в тех нативных окнах игры,
-/// что перечислены в Configuration.TargetAddonNames (по умолчанию - ActionDetail, он же и
-/// всплывающая подсказка умения на хотбаре, и панель описания в "Actions &amp; Traits").
-/// Название умения нигде не трогается.
+/// что перечислены в Configuration.TargetAddonNames (по умолчанию - ActionDetail).
 ///
-/// Как это работает (без завязки на конкретные ID текстовых нод, которые могут отличаться
-/// между версиями игры):
-///  1. Проходим по всем нодам окна и ищем текстовую ноду, чьё содержимое совпадает с английским
-///     названием какого-то умения из перевода - это "нода названия" (не изменяется).
-///  2. Как только умение опознано, ищем "ноду описания": либо ноду, чей текст дословно совпадает
-///     с английским описанием этого умения в данных игры (Lumina), либо (если не нашли - например,
-///     из-за подставленных числовых значений) самую длинную текстовую ноду в этом же окне.
-///  3. Подменяем найденную ноду описания на русский перевод и пересчитываем её размер под новый
-///     текст (ResizeNodeForCurrentText) - русский текст почти всегда длиннее английского и не
-///     помещается в исходную высоту. Всё, что было расположено ниже описания (Acquired/Affinity
-///     и т.п.), а также фон/рамку окна сдвигаем/растягиваем на ту же разницу в высоте, иначе
-///     текст просто вылезает за плашку.
+/// Важно: ActionDetail - это ОБЩИЙ попап игры, переиспользуемый далеко не только для умений
+/// (он же всплывает для Materia Extraction, Repair, Dye, Ignore Target и других системных команд
+/// из меню "Extras"). Поэтому здесь нельзя ничего трогать "навсегда" - на каждый вызов сначала
+/// возвращаем геометрию всех ранее подвинутых нами нод к исходной, и только потом, если текущее
+/// содержимое действительно относится к переведённому умению, применяем перевод заново с чистого
+/// листа. Без этого сдвиг/растяжение, сделанные под ОДНО умение, протекали в следующий (уже
+/// не наш) попап, который переиспользует те же ноды - отсюда и "поехавшие" нетронутые окна.
 ///
-/// Для всплывающей подсказки на хотбаре дополнительно используется IGameGui.HoveredAction -
-/// это даёт точный ActionId без поиска по тексту и работает надёжнее.
+/// Как опознаётся умение:
+///  1. Если сейчас реально наведено на что-то на хотбаре - берём точный ActionId через
+///     IGameGui.HoveredAction, но ТОЛЬКО когда HoveredAction.DetailKind - это Action или
+///     CraftingAction (то есть боевое или ремесленное/собирательское умение). Другие виды
+///     (DetailKind.GeneralAction и т.п. - Materia Extraction, Ignore Target, роулетки...) не
+///     переведены в исходных данных и не должны попадать в ActionId-выборку - их ActionId может
+///     случайно совпасть с ID переведённого умения из другого пространства идентификаторов.
+///  2. Иначе (например, панель в "Actions & Traits") ищем текстовую ноду с названием умения
+///     среди известных нам названий.
+///  3. Найдя умение - ищем "ноду описания": либо ноду, чей текст дословно совпадает с английским
+///     описанием этого умения в данных игры (Lumina), либо (резерв) самую длинную текстовую ноду.
+///  4. Подменяем текст и пересчитываем размер ноды под новый текст (ResizeNodeForCurrentText) -
+///     русский текст почти всегда длиннее английского. Всё, что было расположено ниже описания
+///     (Acquired/Affinity и т.п.), и фон/рамку окна сдвигаем/растягиваем на ту же разницу.
 /// </summary>
 public sealed unsafe class AbilityTextTranslator : IDisposable
 {
@@ -44,15 +50,12 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
     private readonly record struct NodeInfo(nint Address, float X, float Y, ushort Width, ushort Height, string? Text);
 
     /// <summary>
-    /// Адрес ноды описания -> английское название умения, для которого мы её последний раз
-    /// подменяли и пересчитывали размер. Нужно, чтобы не выполнять resize/сдвиг соседних нод
-    /// повторно на КАЖДЫЙ кадр (PostDraw срабатывает десятки-сотни раз в секунду): сравнивать
-    /// напрямую текст ноды с уже применённым переводом ненадёжно - игра может слегка
-    /// перенормализовать текст при отображении, из-за чего строковое сравнение никогда бы не
-    /// совпадало, и правки (в т.ч. сдвиг координат) применялись бы заново каждый кадр, раздувая
-    /// окно до бесконечности.
+    /// Адрес ноды -> её геометрия ДО первого вмешательства плагина. Заполняется один раз, при
+    /// первом же изменении конкретной ноды, и используется, чтобы перед каждой новой попыткой
+    /// перевода откатить окно к тому, каким его исходно построила игра - независимо от того, что
+    /// именно (и для какого умения) мы делали с ним на предыдущем кадре/наведении.
     /// </summary>
-    private readonly Dictionary<nint, string> lastAppliedEnglishName = new();
+    private readonly Dictionary<nint, (float Y, ushort Height)> originalGeometry = new();
 
     public AbilityTextTranslator(
         IAddonLifecycle addonLifecycle,
@@ -114,21 +117,32 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             if (!addon->IsVisible)
                 return;
 
-            TranslationEntry? entry = null;
-
-            // Если сейчас реально наведено на умение на хотбаре - берём точный ActionId через
-            // Dalamud, без поиска по тексту. Если нет (например, это панель в "Actions & Traits",
-            // где ничего не "наведено" в смысле хотбара) - тихо переходим к поиску по названию ниже.
-            var hovered = gameGui.HoveredAction;
-            if (hovered.ActionId != 0 && repository.TryGetByActionId(hovered.ActionId, out var byId) && byId.Count > 0)
-                entry = byId[0];
-
             var allNodes = new List<NodeInfo>();
             CollectNodes((AtkResNode*)addon->RootNode, allNodes);
             // Некоторые окна держат часть контента в списке аддона напрямую (не только через RootNode) -
             // на всякий случай проходим и по верхнему списку нод окна тоже.
             for (var i = 0; i < addon->UldManager.NodeListCount; i++)
                 CollectNodes(addon->UldManager.NodeList[i], allNodes);
+
+            // Сначала откатываем ВСЁ, что мы когда-либо сдвигали/растягивали в этом окне, к
+            // исходному состоянию - раз ActionDetail переиспользуется под разный контент, нельзя
+            // полагаться на то, что игра сама уберёт за нами правки от предыдущего показа.
+            RestoreOriginalGeometry(allNodes);
+
+            TranslationEntry? entry = null;
+
+            // Если сейчас реально наведено на боевое/ремесленное умение на хотбаре - берём точный
+            // ActionId через Dalamud, без поиска по тексту. DetailKind обязателен: у системных
+            // команд (Materia Extraction, Ignore Target, роулетки и т.п. - DetailKind.GeneralAction
+            // и другие) ActionId живёт в своём, отдельном пространстве ID и может случайно
+            // совпасть с ID переведённого умения - без проверки типа получаем чужой перевод.
+            var hovered = gameGui.HoveredAction;
+            if (hovered.ActionId != 0 &&
+                (hovered.DetailKind == DetailKind.Action || hovered.DetailKind == DetailKind.CraftingAction) &&
+                repository.TryGetByActionId(hovered.ActionId, out var byId) && byId.Count > 0)
+            {
+                entry = byId[0];
+            }
 
             if (entry is null)
             {
@@ -156,10 +170,34 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         }
     }
 
+    /// <summary>Возвращает все ранее изменённые ноды этого окна к их исходной геометрии.</summary>
+    private void RestoreOriginalGeometry(List<NodeInfo> allNodes)
+    {
+        for (var i = 0; i < allNodes.Count; i++)
+        {
+            var info = allNodes[i];
+            if (!originalGeometry.TryGetValue(info.Address, out var original))
+                continue;
+            if (info.Y == original.Y && info.Height == original.Height)
+                continue; // уже в исходном состоянии - ничего делать не нужно
+
+            var resNode = (AtkResNode*)info.Address;
+            resNode->Y = original.Y;
+            resNode->Height = original.Height;
+            allNodes[i] = info with { Y = original.Y, Height = original.Height };
+        }
+    }
+
+    /// <summary>Запоминает исходную геометрию ноды, если ещё не запомнена (вызывать ДО первого изменения).</summary>
+    private void RememberOriginalGeometry(NodeInfo info)
+    {
+        if (!originalGeometry.ContainsKey(info.Address))
+            originalGeometry[info.Address] = (info.Y, info.Height);
+    }
+
     private void ReplaceDescriptionNode(List<NodeInfo> allNodes, TranslationEntry entry)
     {
         // 1) Точное совпадение с английским описанием из данных игры - самый надёжный вариант.
-        //    Работает только пока нода ещё не переведена (текст на английском).
         NodeInfo? target = null;
         if (!string.IsNullOrEmpty(entry.GameEnglishDescription))
         {
@@ -173,8 +211,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             }
         }
 
-        // 2) Резерв: самая длинная текстовая нода в этом окне (описание почти всегда самый длинный
-        //    текст) - работает и до, и после перевода, не зависит от языка текста.
+        // 2) Резерв: самая длинная текстовая нода в этом окне (описание почти всегда самый длинный текст).
         if (target is null)
         {
             var bestLength = -1;
@@ -199,15 +236,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             return;
 
         var address = target.Value.Address;
-
-        // Уже применяли перевод именно этого умения к этой же ноде - выходим сразу, ничего не
-        // трогая (ни SetText, ни resize, ни сдвиг соседей). Именно эта проверка отсутствовала
-        // раньше и приводила к тому, что окно раздувалось на каждом кадре без остановки.
-        if (lastAppliedEnglishName.TryGetValue(address, out var appliedTo) &&
-            string.Equals(appliedTo, entry.EnglishName, StringComparison.Ordinal))
-        {
-            return;
-        }
+        RememberOriginalGeometry(target.Value);
 
         var node = (AtkTextNode*)address;
         var oldY = target.Value.Y;
@@ -217,7 +246,6 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         node->SetText(entry.Content!); // не null - проверено в OnAddonPostDraw перед вызовом этого метода
         // Пересчитывает Width/Height ноды под уже установленный текст (перенос строк по ширине сохраняется).
         node->ResizeNodeForCurrentText();
-        lastAppliedEnglishName[address] = entry.EnglishName;
 
         var resizedNode = (AtkResNode*)node;
         var delta = resizedNode->Height - oldHeight;
@@ -228,14 +256,13 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         if (delta is 0 or < -2000 or > 2000)
             return;
 
-        // Русский перевод почти всегда длиннее английского оригинала и не помещается в исходную
-        // высоту плашки - растягиваем самый большой узел, который визуально накрывает описание
-        // (скорее всего фон/рамка окна), и сдвигаем вниз всё, что было расположено ниже описания
+        // Растягиваем самый большой узел, который визуально накрывает описание (скорее всего
+        // фон/рамка окна), и сдвигаем вниз всё, что было расположено ниже описания
         // (Acquired/Affinity и т.п.), чтобы не наезжало на новый, более высокий текст.
         NodeInfo? background = null;
         foreach (var info in allNodes)
         {
-            if (info.Address == target.Value.Address)
+            if (info.Address == address)
                 continue;
             if (info.Y <= oldY && info.Y + info.Height >= oldBottom
                 && (background is null || info.Height > background.Value.Height))
@@ -246,6 +273,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
 
         if (background is not null)
         {
+            RememberOriginalGeometry(background.Value);
             var backgroundNode = (AtkResNode*)background.Value.Address;
             // Height - ushort (беззнаковый!). Если delta отрицательна и по модулю больше текущей
             // высоты, backgroundNode->Height + delta уходит в минус, а приведение к ushort не
@@ -258,13 +286,14 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
 
         foreach (var info in allNodes)
         {
-            if (info.Address == target.Value.Address)
+            if (info.Address == address)
                 continue;
             if (background is not null && info.Address == background.Value.Address)
                 continue;
             // Небольшой допуск (2px), чтобы не задеть ноды, чей верх совпадает с низом описания случайно.
             if (info.Y + 2 >= oldBottom)
             {
+                RememberOriginalGeometry(info);
                 var otherNode = (AtkResNode*)info.Address;
                 otherNode->Y += delta;
             }
