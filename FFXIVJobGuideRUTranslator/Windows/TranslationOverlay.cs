@@ -159,7 +159,13 @@ public static class TranslationOverlay
             // немасштабированному размеру шрифта.
             ImGui.SetWindowFontScale(scale);
 
-            DrawHeader(info.Entry, hasStats ? stats : null, textureProvider, scale);
+            // Реальная ширина окна на этот кадр (AlwaysAutoResize уже определил её по прошлому
+            // кадру - см. lastSize) - а не фиксированная BaseWrapWidth, иначе при более широком
+            // окне (например, из-за иконки и длинного имени умения в шапке) текст переносится
+            // раньше правого края окна, и с одной стороны остаётся пустая полоса.
+            var wrapWidth = Math.Max(ImGui.GetContentRegionAvail().X, BaseWrapWidth * scale);
+
+            DrawHeader(info.Entry, hasStats ? stats : null, textureProvider, scale, wrapWidth);
 
             if (hasStats)
                 DrawCastRecastRow(stats, scale);
@@ -169,14 +175,14 @@ public static class TranslationOverlay
             ImGui.Spacing();
 
             foreach (var line in info.Entry.Content!.Split('\n'))
-                DrawLine(line, scale);
+                DrawLine(line, wrapWidth);
 
             if (hasStats)
             {
                 ImGui.Spacing();
                 ImGui.Separator();
                 ImGui.Spacing();
-                DrawFooter(stats, scale);
+                DrawFooter(stats, wrapWidth);
             }
 
             lastSize = ImGui.GetWindowSize();
@@ -188,7 +194,7 @@ public static class TranslationOverlay
     }
 
     /// <summary>Иконка + имя + классификация (слева) и Дальность/Радиус (справа) под именем.</summary>
-    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, ITextureProvider textureProvider, float scale)
+    private static void DrawHeader(TranslationEntry entry, ActionStats? stats, ITextureProvider textureProvider, float scale, float wrapWidth)
     {
         if (stats is { } s)
         {
@@ -212,7 +218,7 @@ public static class TranslationOverlay
         if (rangeText is not null)
         {
             var rangeWidth = ImGui.CalcTextSize(rangeText).X;
-            var targetX = Math.Max(ImGui.GetCursorPosX(), BaseWrapWidth * scale - rangeWidth);
+            var targetX = Math.Max(ImGui.GetCursorPosX(), wrapWidth - rangeWidth);
             if (hasClassification)
                 ImGui.SameLine(targetX); // продолжаем строку классификации
             else
@@ -237,7 +243,7 @@ public static class TranslationOverlay
     }
 
     /// <summary>"Получено: RPR Ур. N" / "Работы: RPR SAM ...".</summary>
-    private static void DrawFooter(ActionStats stats, float scale)
+    private static void DrawFooter(ActionStats stats, float wrapWidth)
     {
         ImGui.TextColored(LabelColor, "Получено:");
         ImGui.SameLine();
@@ -254,7 +260,7 @@ public static class TranslationOverlay
             // по ширине окна, а просто раздувает его вширь.
             var jobTokens = new List<Token>();
             AppendPlainWords(string.Join("  ", stats.Jobs), jobTokens, TextColor);
-            RenderLineTokens(jobTokens, BaseWrapWidth * scale);
+            RenderLineTokens(jobTokens, wrapWidth);
         }
     }
 
@@ -263,10 +269,10 @@ public static class TranslationOverlay
     private static string FormatYalms(int range) => range < 0 ? "-" : range + "y";
 
     /// <summary>Рисует одну строку описания - метка (см. LabelOnlyAccentPrefixes) зелёным, остальное обычным текстом с золотыми названиями.</summary>
-    private static void DrawLine(string line, float scale)
+    private static void DrawLine(string line, float wrapWidth)
     {
         var tokens = ComputeLineTokens(line);
-        RenderLineTokens(tokens, BaseWrapWidth * scale);
+        RenderLineTokens(tokens, wrapWidth);
     }
 
     private static List<Token> ComputeLineTokens(string line)
