@@ -112,18 +112,14 @@ public static class TranslationOverlay
 
         ImGui.SetNextWindowPos(pos, ImGuiCond.Always);
 
-        // Если удалось достать настоящую текстуру фона родного окна - рисуем её (см. ниже,
-        // DrawNineSlice), а собственный плоский фон/рамку ImGui делаем прозрачными, чтобы не
-        // мешались под ней. Если нет (не нашли NineGrid-ноду, текстура ещё не готова и т.п.) -
-        // используем приближение цветом как раньше.
-        var hasRealBackground = info.Background is not null;
-
-        ImGui.PushStyleColor(ImGuiCol.WindowBg, hasRealBackground
-            ? new Vector4(0, 0, 0, 0)
-            : new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
-        ImGui.PushStyleColor(ImGuiCol.Border, hasRealBackground
-            ? new Vector4(0, 0, 0, 0)
-            : new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
+        // Плоский тёмный фон и тонкая рамка - ВСЕГДА как надёжная база, независимо от того,
+        // удалось ли достать настоящую текстуру. Настоящая текстура (если есть) рисуется поверх
+        // этой базы как улучшение, а не замена - если DrawNineSlice по какой-то причине не
+        // нарисует часть/всю плашку (например, границы среза распознаны неверно и все 9 кусков
+        // оказались вырожденными), под ней всё равно останется читаемый фон, а не голый текст
+        // прямо поверх игрового мира.
+        ImGui.PushStyleColor(ImGuiCol.WindowBg, new Vector4(0.085f, 0.078f, 0.070f, 0.97f));
+        ImGui.PushStyleColor(ImGuiCol.Border, new Vector4(0.5f, 0.48f, 0.44f, 0.5f));
         ImGui.PushStyleColor(ImGuiCol.Separator, SeparatorColor);
         ImGui.PushStyleVar(ImGuiStyleVar.WindowPadding, new Vector2(7, 5));
         ImGui.PushStyleVar(ImGuiStyleVar.WindowBorderSize, 1f);
