@@ -54,8 +54,8 @@ dotnet build -c Debug
 ## Установка как dev-плагин
 
 1. В игре: `/xlsettings` -> вкладка `Experimental` -> `Dev Plugin Locations` -> добавить папку
-   `FFXIVJobGuideRUTranslator\bin\x64\Debug` (там после сборки лежит `FFXIVJobGuideRUTranslator.dll`
-   и манифест).
+   `FFXIVJobGuideRUTranslator\bin\Debug` (там после сборки лежит `FFXIVJobGuideRUTranslator.dll`
+   и манифест — проверьте точный путь в выводе `dotnet build`, он пишет его после стрелки `->`).
 2. `/xlplugins` -> вкладка `Dev Tools` -> найти плагин в списке -> включить.
 3. После правок кода: пересобрать (`dotnet build`) и в `/xlplugins -> Dev Tools` нажать перезагрузку
    плагина (не обязательно перезапускать игру целиком).

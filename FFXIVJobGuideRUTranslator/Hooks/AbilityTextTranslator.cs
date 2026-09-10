@@ -207,7 +207,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         var oldHeight = target.Value.Height;
         var oldBottom = oldY + oldHeight;
 
-        node->SetText(entry.Content);
+        node->SetText(entry.Content!); // не null - проверено в OnAddonPostDraw перед вызовом этого метода
         // Пересчитывает Width/Height ноды под уже установленный текст (перенос строк по ширине сохраняется).
         node->ResizeNodeForCurrentText();
         lastAppliedEnglishName[address] = entry.EnglishName;
