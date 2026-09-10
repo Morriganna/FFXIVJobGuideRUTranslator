@@ -13,7 +13,8 @@ public readonly record struct ActionStats(
     int Range,
     int Radius,
     int Level,
-    IReadOnlyList<string> Jobs);
+    IReadOnlyList<string> Jobs,
+    string Name);
 
 public static class ActionStatsLookup
 {
@@ -52,7 +53,8 @@ public static class ActionStatsLookup
                         row.Range,
                         row.EffectRange,
                         row.ClassJobLevel,
-                        jobs);
+                        jobs,
+                        row.Name.ToString());
                 }
                 catch (System.Exception ex)
                 {

@@ -122,10 +122,23 @@ public sealed class TranslationRepository
         // для них поиск по листам Action/CraftAction ниже просто пропускается (см. IsResolved
         // внутри ResolveActionIds - уже сопоставленные записи там не трогаются).
         var resolvedById = 0;
+        var rejectedStaleId = 0;
         foreach (var entry in parsed)
         {
             if (entry.SourceActionId is not { } sourceId || sourceId == 0)
                 continue;
+
+            // Если id указывает на строку листа Action, но её имя НЕ совпадает с EnglishName
+            // записи - значит в текущей версии игры этот числовой id сместился и указывает уже
+            // на другое умение (источник не успел обновиться под патч). Доверять такому id
+            // нельзя - показал бы чужую иконку/статы; сбрасываем и ищем по имени ниже, как для
+            // записей без id вообще.
+            if (ActionStatsById.TryGetValue(sourceId, out var actionRow) &&
+                !string.Equals(actionRow.Name, entry.EnglishName, StringComparison.OrdinalIgnoreCase))
+            {
+                rejectedStaleId++;
+                continue;
+            }
 
             entry.ActionId = sourceId;
             // "Action" только если ID точно существует в этом листе - иначе нейтральная метка,
@@ -134,6 +147,9 @@ public sealed class TranslationRepository
             entry.ResolvedSheet = ActionStatsById.ContainsKey(sourceId) ? "Action" : "id (источник)";
             resolvedById++;
         }
+
+        if (rejectedStaleId > 0)
+            log.Warning($"[JobGuideRU] Отклонено id из исходного JSON, не совпадающих с именем умения в текущей версии игры: {rejectedStaleId} (сопоставлены по имени вместо id).");
 
         if (resolvedById > 0)
             log.Information($"[JobGuideRU] Сопоставлено напрямую по id из исходного JSON: {resolvedById}.");
