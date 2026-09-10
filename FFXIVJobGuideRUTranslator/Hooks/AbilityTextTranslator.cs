@@ -10,17 +10,22 @@ namespace FFXIVJobGuideRUTranslator.Hooks;
 
 /// <summary>
 /// Подменяет ТОЛЬКО текст описания умения (поле content из перевода) в тех нативных окнах игры,
-/// что перечислены в Configuration.TargetAddonNames (по умолчанию: всплывающая подсказка умения
-/// на хотбаре и панель описания в "Actions &amp; Traits"). Название умения нигде не трогается.
+/// что перечислены в Configuration.TargetAddonNames (по умолчанию - ActionDetail, он же и
+/// всплывающая подсказка умения на хотбаре, и панель описания в "Actions &amp; Traits").
+/// Название умения нигде не трогается.
 ///
 /// Как это работает (без завязки на конкретные ID текстовых нод, которые могут отличаться
 /// между версиями игры):
-///  1. Проходим по всем текстовым нодам окна и ищем ноду, чей текст совпадает с английским
+///  1. Проходим по всем нодам окна и ищем текстовую ноду, чьё содержимое совпадает с английским
 ///     названием какого-то умения из перевода - это "нода названия" (не изменяется).
 ///  2. Как только умение опознано, ищем "ноду описания": либо ноду, чей текст дословно совпадает
 ///     с английским описанием этого умения в данных игры (Lumina), либо (если не нашли - например,
 ///     из-за подставленных числовых значений) самую длинную текстовую ноду в этом же окне.
-///  3. Подменяем найденную ноду описания на русский перевод.
+///  3. Подменяем найденную ноду описания на русский перевод и пересчитываем её размер под новый
+///     текст (ResizeNodeForCurrentText) - русский текст почти всегда длиннее английского и не
+///     помещается в исходную высоту. Всё, что было расположено ниже описания (Acquired/Affinity
+///     и т.п.), а также фон/рамку окна сдвигаем/растягиваем на ту же разницу в высоте, иначе
+///     текст просто вылезает за плашку.
 ///
 /// Для всплывающей подсказки на хотбаре дополнительно используется IGameGui.HoveredAction -
 /// это даёт точный ActionId без поиска по тексту и работает надёжнее.
@@ -34,6 +39,8 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
     private readonly TranslationRepository repository;
 
     private readonly HashSet<string> registeredAddonNames = new();
+
+    private readonly record struct NodeInfo(nint Address, short X, short Y, ushort Width, ushort Height, string? Text);
 
     public AbilityTextTranslator(
         IAddonLifecycle addonLifecycle,
@@ -97,21 +104,21 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             if (hovered.ActionId != 0 && repository.TryGetByActionId(hovered.ActionId, out var byId) && byId.Count > 0)
                 entry = byId[0];
 
-            var textNodes = new List<(nint Address, string Text)>();
-            CollectTextNodes((AtkResNode*)addon->RootNode, textNodes);
+            var allNodes = new List<NodeInfo>();
+            CollectNodes((AtkResNode*)addon->RootNode, allNodes);
             // Некоторые окна держат часть контента в списке аддона напрямую (не только через RootNode) -
             // на всякий случай проходим и по верхнему списку нод окна тоже.
             for (var i = 0; i < addon->UldManager.NodeListCount; i++)
-                CollectTextNodes(addon->UldManager.NodeList[i], textNodes);
+                CollectNodes(addon->UldManager.NodeList[i], allNodes);
 
             if (entry is null)
             {
                 // Окно вроде "Actions & Traits": ищем ноду с названием умения среди известных нам названий.
-                foreach (var (_, text) in textNodes)
+                foreach (var info in allNodes)
                 {
-                    if (string.IsNullOrWhiteSpace(text))
+                    if (string.IsNullOrWhiteSpace(info.Text))
                         continue;
-                    if (!repository.TryGetByEnglishName(text, out var byName) || byName.Count == 0)
+                    if (!repository.TryGetByEnglishName(info.Text, out var byName) || byName.Count == 0)
                         continue;
 
                     entry = byName[0];
@@ -122,7 +129,7 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
             if (entry is null || string.IsNullOrEmpty(entry.Content))
                 return;
 
-            ReplaceDescriptionNode(addon, textNodes, entry);
+            ReplaceDescriptionNode(allNodes, entry);
         }
         catch (Exception ex)
         {
@@ -130,39 +137,41 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
         }
     }
 
-    private void ReplaceDescriptionNode(AtkUnitBase* addon, List<(nint Address, string Text)> textNodes, TranslationEntry entry)
+    private void ReplaceDescriptionNode(List<NodeInfo> allNodes, TranslationEntry entry)
     {
         // 1) Точное совпадение с английским описанием из данных игры - самый надёжный вариант.
-        nint targetAddress = 0;
+        NodeInfo? target = null;
         if (!string.IsNullOrEmpty(entry.GameEnglishDescription))
         {
-            foreach (var (address, text) in textNodes)
+            foreach (var info in allNodes)
             {
-                if (string.Equals(text.Trim(), entry.GameEnglishDescription!.Trim(), StringComparison.Ordinal))
+                if (info.Text is not null && string.Equals(info.Text.Trim(), entry.GameEnglishDescription!.Trim(), StringComparison.Ordinal))
                 {
-                    targetAddress = address;
+                    target = info;
                     break;
                 }
             }
         }
 
         // 2) Уже подменяли раньше - текст теперь совпадает с русским переводом, ничего делать не нужно.
-        if (targetAddress == 0)
+        if (target is null)
         {
-            foreach (var (address, text) in textNodes)
+            foreach (var info in allNodes)
             {
-                if (string.Equals(text.Trim(), entry.Content!.Trim(), StringComparison.Ordinal))
+                if (info.Text is not null && string.Equals(info.Text.Trim(), entry.Content!.Trim(), StringComparison.Ordinal))
                     return;
             }
         }
 
         // 3) Резерв: самая длинная текстовая нода в этом окне (описание почти всегда самый длинный текст).
-        if (targetAddress == 0)
+        if (target is null)
         {
             var bestLength = -1;
-            foreach (var (address, text) in textNodes)
+            foreach (var info in allNodes)
             {
-                var trimmed = text.Trim();
+                if (info.Text is null)
+                    continue;
+                var trimmed = info.Text.Trim();
                 if (trimmed.Length <= 3)
                     continue;
                 if (string.Equals(trimmed, entry.EnglishName.Trim(), StringComparison.OrdinalIgnoreCase))
@@ -170,44 +179,92 @@ public sealed unsafe class AbilityTextTranslator : IDisposable
                 if (trimmed.Length > bestLength)
                 {
                     bestLength = trimmed.Length;
-                    targetAddress = address;
+                    target = info;
                 }
             }
         }
 
-        if (targetAddress == 0)
+        if (target is null)
             return;
 
-        var node = (AtkTextNode*)targetAddress;
+        var node = (AtkTextNode*)target.Value.Address;
         var current = node->NodeText.ToString();
         if (string.Equals(current.Trim(), entry.Content!.Trim(), StringComparison.Ordinal))
             return;
 
+        var oldY = target.Value.Y;
+        var oldHeight = target.Value.Height;
+        var oldBottom = oldY + oldHeight;
+
         node->SetText(entry.Content);
+        // Пересчитывает Width/Height ноды под уже установленный текст (перенос строк по ширине сохраняется).
+        node->ResizeNodeForCurrentText();
+
+        var resizedNode = (AtkResNode*)node;
+        var delta = resizedNode->Height - oldHeight;
+        if (delta == 0)
+            return;
+
+        // Русский перевод почти всегда длиннее английского оригинала и не помещается в исходную
+        // высоту плашки - растягиваем самый большой узел, который визуально накрывает описание
+        // (скорее всего фон/рамка окна), и сдвигаем вниз всё, что было расположено ниже описания
+        // (Acquired/Affinity и т.п.), чтобы не наезжало на новый, более высокий текст.
+        NodeInfo? background = null;
+        foreach (var info in allNodes)
+        {
+            if (info.Address == target.Value.Address)
+                continue;
+            if (info.Y <= oldY && info.Y + info.Height >= oldBottom
+                && (background is null || info.Height > background.Value.Height))
+            {
+                background = info;
+            }
+        }
+
+        if (background is not null)
+        {
+            var backgroundNode = (AtkResNode*)background.Value.Address;
+            backgroundNode->Height = (ushort)(backgroundNode->Height + delta);
+        }
+
+        foreach (var info in allNodes)
+        {
+            if (info.Address == target.Value.Address)
+                continue;
+            if (background is not null && info.Address == background.Value.Address)
+                continue;
+            // Небольшой допуск (2px), чтобы не задеть ноды, чей верх совпадает с низом описания случайно.
+            if (info.Y + 2 >= oldBottom)
+            {
+                var otherNode = (AtkResNode*)info.Address;
+                otherNode->Y = (short)(otherNode->Y + delta);
+            }
+        }
     }
 
-    private static void CollectTextNodes(AtkResNode* node, List<(nint, string)> results)
+    private static void CollectNodes(AtkResNode* node, List<NodeInfo> results)
     {
         while (node is not null)
         {
+            string? text = null;
             if (node->Type == NodeType.Text)
-            {
-                var textNode = (AtkTextNode*)node;
-                results.Add(((nint)textNode, textNode->NodeText.ToString()));
-            }
-            else if (node->Type >= NodeType.Component)
+                text = ((AtkTextNode*)node)->NodeText.ToString();
+
+            results.Add(new NodeInfo((nint)node, node->X, node->Y, node->Width, node->Height, text));
+
+            if (node->Type >= NodeType.Component)
             {
                 // Компонентные ноды (кнопки, списки и т.п.) хранят свои дочерние ноды в собственном UldManager.
                 var component = ((AtkComponentNode*)node)->Component;
                 if (component is not null && component->UldManager.NodeList is not null)
                 {
                     for (var i = 0; i < component->UldManager.NodeListCount; i++)
-                        CollectTextNodes(component->UldManager.NodeList[i], results);
+                        CollectNodes(component->UldManager.NodeList[i], results);
                 }
             }
 
             if (node->ChildNode is not null)
-                CollectTextNodes(node->ChildNode, results);
+                CollectNodes(node->ChildNode, results);
 
             node = node->PrevSiblingNode;
         }
