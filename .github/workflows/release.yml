@@ -76,8 +76,11 @@ jobs:
           $manifest | Add-Member -NotePropertyName IsTestingExclusive -NotePropertyValue $false -Force
           $manifest | Add-Member -NotePropertyName LastUpdate -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()) -Force
 
+          # -AsArray обязателен: без него ConvertTo-Json разворачивает массив из одного
+          # элемента обратно в голый объект (эффект пайплайна PowerShell), а Dalamud ждёт
+          # именно JSON-массив "[{...}]", даже если плагин в репозитории один.
           $outFile = Join-Path $env:RUNNER_TEMP "repo.json"
-          @($manifest) | ConvertTo-Json -Depth 10 | Set-Content -Path $outFile -Encoding utf8
+          ConvertTo-Json -InputObject @($manifest) -Depth 10 -AsArray | Set-Content -Path $outFile -Encoding utf8
           "file=$outFile" >> $env:GITHUB_OUTPUT
 
       - name: Publish repo.json to main
