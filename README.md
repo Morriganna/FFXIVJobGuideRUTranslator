@@ -141,6 +141,10 @@ dotnet build -c Debug
 - **Ошибка компиляции в `AbilityHoverWatcher.cs` на строке с `args.Addon`.**
   Это низкоуровневый API FFXIVClientStructs, который иногда меняет форму между версиями Dalamud -
   в коде оставлен комментарий с подсказкой, что попробовать вместо этого.
+- **Ошибка компиляции в `JobActionDump.cs` (вкладка Debug) или в таблице ImGui в `ConfigWindow.cs`.**
+  Оба места писались без доступа к живому клиенту (нет способа сверить точные имена свойств
+  `ClassJobCategory`/таблиц ImGui в вашей версии Dalamud/`Dalamud.Bindings.ImGui`) - в коде оставлены
+  комментарии, что именно смотреть в IntelliSense.
 
 ## Структура проекта
 

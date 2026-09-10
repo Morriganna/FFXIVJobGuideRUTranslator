@@ -35,7 +35,7 @@ public static class JobActionDump
     /// </summary>
     public static List<JobActionDumpRow> BuildForCurrentJob(
         IDataManager dataManager,
-        IClientState clientState,
+        IPlayerState playerState,
         TranslationRepository repository,
         IPluginLog log,
         out string? jobAbbreviation)
@@ -43,15 +43,16 @@ public static class JobActionDump
         jobAbbreviation = null;
         var result = new List<JobActionDumpRow>();
 
-        var localPlayer = clientState.LocalPlayer;
-        if (localPlayer is null)
+        // IClientState.LocalPlayer устарел начиная с API 14 - атрибуты текущего персонажа
+        // (в т.ч. работу) с этой версии положено читать через IPlayerState.
+        if (!playerState.IsLoaded)
             return result;
 
         string abbreviation;
         try
         {
             // ClassJob - RowRef на лист ClassJob; Abbreviation - трёхбуквенный код вида "WAR", "SAM".
-            abbreviation = localPlayer.ClassJob.Value.Abbreviation.ToString().Trim();
+            abbreviation = playerState.ClassJob.Value.Abbreviation.ToString().Trim();
         }
         catch (Exception ex)
         {

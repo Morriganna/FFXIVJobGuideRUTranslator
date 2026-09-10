@@ -23,7 +23,9 @@ public sealed class Plugin : IDalamudPlugin
     [PluginService] internal static IDataManager DataManager { get; private set; } = null!;
     [PluginService] internal static IAddonLifecycle AddonLifecycle { get; private set; } = null!;
     [PluginService] internal static IGameGui GameGui { get; private set; } = null!;
-    [PluginService] internal static IClientState ClientState { get; private set; } = null!;
+    // IClientState.LocalPlayer признан устаревшим начиная с API 14 (см. changelog Dalamud v14) -
+    // для чтения атрибутов текущего персонажа (в т.ч. работы) правильный сервис теперь IPlayerState.
+    [PluginService] internal static IPlayerState PlayerState { get; private set; } = null!;
 
     private const string CommandName = "/jgru";
 
@@ -94,7 +96,7 @@ public sealed class Plugin : IDalamudPlugin
 
     /// <summary>Дамп умений текущей работы персонажа для вкладки "Debug" окна настроек - см. JobActionDump.</summary>
     public List<JobActionDumpRow> BuildJobActionDump(out string? jobAbbreviation)
-        => JobActionDump.BuildForCurrentJob(DataManager, ClientState, Repository, Log, out jobAbbreviation);
+        => JobActionDump.BuildForCurrentJob(DataManager, PlayerState, Repository, Log, out jobAbbreviation);
 
     /// <summary>
     /// Однократно чистит список аддонов от пустых/пробельных и повторяющихся (без учёта
