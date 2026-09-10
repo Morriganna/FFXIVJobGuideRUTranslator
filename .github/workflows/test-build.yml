@@ -78,6 +78,9 @@ jobs:
           if (-not (Test-Path "$dir/latest.zip")) {
             throw "latest.zip не найден в $dir - похоже, DalamudPackager не отработал (MakeZip)."
           }
+          if (-not (Test-Path "$dir/FFXIVJobGuideRUTranslator.json")) {
+            throw "Манифест FFXIVJobGuideRUTranslator.json не найден в $dir."
+          }
           "dir=$dir" >> $env:GITHUB_OUTPUT
 
       - name: Tag this build
@@ -96,16 +99,27 @@ jobs:
 
       # Обновляем только тестовый канал в repo.json - AssemblyVersion/DownloadLinkInstall
       # (стабильный канал) не трогаем, им управляет release.yml по тегам vX.Y.Z.
+      #
+      # Если repo.json ещё нет вообще (ни одного стабильного релиза не было) - создаём его сами
+      # из манифеста DalamudPackager, с IsTestingExclusive: true. Это официальный флаг Dalamud
+      # именно для такого случая - "плагин существует только в тестовом канале", виден и ставится
+      # только тем, у кого включён приём тестовых сборок. Как только выйдет первый настоящий
+      # релиз, release.yml сам выставит IsTestingExclusive обратно в false.
       - name: Update testing channel in repo.json
         shell: pwsh
         run: |
-          if (-not (Test-Path "repo.json")) {
-            throw "repo.json ещё не существует на main - сначала нужен хотя бы один обычный релиз (тег vX.Y.Z, см. release.yml)."
-          }
-
-          $repo = Get-Content "repo.json" -Raw | ConvertFrom-Json
-          $entry = $repo[0]
           $zipUrl = "https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/latest.zip"
+
+          if (Test-Path "repo.json") {
+            $repo = Get-Content "repo.json" -Raw | ConvertFrom-Json
+            $entry = $repo[0]
+          } else {
+            Write-Host "repo.json ещё не существует - создаю с нуля как testing-exclusive (стабильного релиза ещё не было)."
+            $entry = Get-Content "${{ steps.pkg.outputs.dir }}/FFXIVJobGuideRUTranslator.json" -Raw | ConvertFrom-Json
+            $entry | Add-Member -NotePropertyName IsHide -NotePropertyValue $false -Force
+            $entry | Add-Member -NotePropertyName IsTestingExclusive -NotePropertyValue $true -Force
+            $entry | Add-Member -NotePropertyName LastUpdate -NotePropertyValue ([DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()) -Force
+          }
 
           $entry | Add-Member -NotePropertyName TestingAssemblyVersion -NotePropertyValue "${{ steps.version.outputs.version }}" -Force
           $entry | Add-Member -NotePropertyName DownloadLinkTesting -NotePropertyValue $zipUrl -Force
