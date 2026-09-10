@@ -120,7 +120,7 @@ jobs:
           # эти поля на новую запись как есть, стабильный релиз их не меняет и не затирает.
           if (Test-Path "repo.json") {
             $existing = (Get-Content "repo.json" -Raw | ConvertFrom-Json)[0]
-            foreach ($field in @("TestingAssemblyVersion", "DownloadLinkTesting")) {
+            foreach ($field in @("TestingAssemblyVersion", "DownloadLinkTesting", "TestingDalamudApiLevel")) {
               if ($existing.PSObject.Properties.Name -contains $field) {
                 $manifest | Add-Member -NotePropertyName $field -NotePropertyValue $existing.$field -Force
               }

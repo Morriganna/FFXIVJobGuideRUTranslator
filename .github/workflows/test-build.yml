@@ -123,6 +123,11 @@ jobs:
 
           $entry | Add-Member -NotePropertyName TestingAssemblyVersion -NotePropertyValue "${{ steps.version.outputs.version }}" -Force
           $entry | Add-Member -NotePropertyName DownloadLinkTesting -NotePropertyValue $zipUrl -Force
+          # В рабочих repo.json (например у Penumbra) рядом с DalamudApiLevel всегда стоит и
+          # TestingDalamudApiLevel - похоже, без него Dalamud может молча считать тестовую запись
+          # несовместимой (по умолчанию 0) и просто не предлагать обновление, без вообще каких-то
+          # ошибок. Ставим то же значение, что и у основного DalamudApiLevel текущей сборки.
+          $entry | Add-Member -NotePropertyName TestingDalamudApiLevel -NotePropertyValue $entry.DalamudApiLevel -Force
 
           ConvertTo-Json -InputObject @($entry) -Depth 10 | Set-Content -Path "repo.json" -Encoding utf8
 
