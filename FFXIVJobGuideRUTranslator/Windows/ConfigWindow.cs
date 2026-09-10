@@ -60,6 +60,18 @@ public class ConfigWindow : Window, IDisposable
             configuration.Save();
         }
 
+        var useNativeWindow = configuration.UseNativeTranslationWindow;
+        if (ImGui.Checkbox("Экспериментально: рисовать перевод нативным окном вместо ImGui", ref useNativeWindow))
+        {
+            configuration.UseNativeTranslationWindow = useNativeWindow;
+            configuration.Save();
+        }
+        ImGui.TextWrapped(
+            "Прячет родную подсказку умения (только когда для неё есть перевод) и рисует свою " +
+            "настоящими нодами игры (KamiToolKit) вместо отдельного ImGui-окна. Не проверено на " +
+            "живом клиенте - если что-то сломалось (в т.ч. в ДРУГИХ окнах, не связанных с умениями), " +
+            "выключите этот тумблер здесь.");
+
         ImGui.Separator();
         ImGui.TextUnformatted("Список аддонов, где разрешена подмена текста:");
         ImGui.TextWrapped("Проверьте актуальные имена через /xldata -> Addon Inspector, если что-то не работает.");

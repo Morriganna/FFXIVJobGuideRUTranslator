@@ -29,6 +29,18 @@ public class Configuration : IPluginConfiguration
     /// <summary>UTC-время последнего успешного обновления перевода с GitHub. Null = используется только бандл.</summary>
     public DateTime? LastUpdateUtc { get; set; }
 
+    /// <summary>
+    /// Экспериментально: вместо отдельного ImGui-окна (TranslationOverlay) прячет родную подсказку
+    /// умения (только когда для неё есть перевод) и рисует свою через настоящие ноды игры
+    /// (KamiToolKit) - см. Windows/NativeTranslationOverlayNode.cs. По умолчанию выключено:
+    /// это 6-я попытка интеграции с нативным UI в этом проекте (см. AbilityHoverWatcher.cs) -
+    /// предыдущие 5 (менявшие текст/размер прямо в родном попапе) ломали другие окна, которые
+    /// повторно используют тот же попап (Materia Extraction, Repair и т.п.). Этот вариант не
+    /// трогает ноды родного попапа вообще - только переключает его видимость и рисует полностью
+    /// отдельное окно, - но всё равно не проверялся на живом клиенте, поэтому выключатель есть.
+    /// </summary>
+    public bool UseNativeTranslationWindow { get; set; } = false;
+
     public void Save()
     {
         Plugin.PluginInterface.SavePluginConfig(this);

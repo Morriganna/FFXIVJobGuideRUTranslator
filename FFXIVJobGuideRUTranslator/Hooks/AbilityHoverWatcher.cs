@@ -157,8 +157,27 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 // Только читаем координаты окна - X/Y/масштаб самой игры, ничего не меняем.
                 var width = addon->GetScaledWidth(true);
                 var height = addon->GetScaledHeight(true);
-                var background = TryGetBackgroundNineGrid(addon, out var nineGrid, log) ? nineGrid : (NineGridInfo?)null;
+
+                // Фон родной подсказки нужен только ImGui-варианту оверлея (TranslationOverlay,
+                // приближение цветом/текстурой); нативный вариант (NativeTranslationOverlayNode)
+                // рисует свой настоящий фон через KamiToolKit и его не использует - не тратим время
+                // на сканирование дерева нод впустую.
+                NineGridInfo? background = null;
+                if (!configuration.UseNativeTranslationWindow &&
+                    TryGetBackgroundNineGrid(addon, out var nineGrid, log))
+                {
+                    background = nineGrid;
+                }
+
                 Current = new HoverInfo(entry, addon->X, addon->Y, width, height, background);
+
+                // Экспериментальный режим (см. Configuration.UseNativeTranslationWindow): прячем
+                // РОДНУЮ подсказку только на кадрах, где для неё точно есть перевод - её ноды при
+                // этом не трогаются вообще, только IsVisible всего окна. В любой другой момент
+                // (другое использование этого же попапа - Materia Extraction и т.п., или умение
+                // без перевода) addon->IsVisible никак не меняем - родное окно ведёт себя как обычно.
+                if (configuration.UseNativeTranslationWindow)
+                    addon->IsVisible = false;
             }
         }
         catch (Exception ex)

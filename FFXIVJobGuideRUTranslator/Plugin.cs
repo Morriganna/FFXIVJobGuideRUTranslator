@@ -12,6 +12,7 @@ using Dalamud.Plugin.Services;
 using FFXIVJobGuideRUTranslator.Data;
 using FFXIVJobGuideRUTranslator.Hooks;
 using FFXIVJobGuideRUTranslator.Windows;
+using KamiToolKit.UiOverlay;
 
 namespace FFXIVJobGuideRUTranslator;
 
@@ -41,6 +42,13 @@ public sealed class Plugin : IDalamudPlugin
     private AbilityHoverWatcher? hoverWatcher;
     private readonly string overrideDirectory;
 
+    // Экспериментальный нативный оверлей (см. Configuration.UseNativeTranslationWindow) - создаётся
+    // всегда (недорого, пока не видим), но реально показывается только пока тумблер включён;
+    // AddNode/RemoveAllNodes должны звонить строго из главного потока игры, как и конструктор
+    // Plugin - см. доки KamiToolKit.
+    private readonly OverlayController overlayController;
+    private readonly NativeTranslationOverlayNode nativeOverlayNode;
+
     public Plugin()
     {
         Configuration = PluginInterface.GetPluginConfig() as Configuration ?? new Configuration();
@@ -52,6 +60,10 @@ public sealed class Plugin : IDalamudPlugin
         Repository.Reload();
 
         hoverWatcher = new AbilityHoverWatcher(AddonLifecycle, GameGui, Log, Configuration, Repository);
+
+        overlayController = new OverlayController();
+        nativeOverlayNode = new NativeTranslationOverlayNode(() => hoverWatcher?.Current, () => Configuration.UseNativeTranslationWindow);
+        overlayController.AddNode(nativeOverlayNode);
 
         ConfigWindow = new ConfigWindow(this);
         WindowSystem.AddWindow(ConfigWindow);
@@ -78,6 +90,8 @@ public sealed class Plugin : IDalamudPlugin
         hoverWatcher?.Dispose();
         hoverWatcher = null;
 
+        overlayController.Dispose();
+
         CommandManager.RemoveHandler(CommandName);
     }
 
@@ -85,10 +99,18 @@ public sealed class Plugin : IDalamudPlugin
     {
         WindowSystem.Draw();
 
-        // Оверлей с переводом рисуется отдельно поверх экрана - см. AbilityHoverWatcher/TranslationOverlay.
+        // Оверлей с переводом рисуется отдельно поверх экрана - см. AbilityHoverWatcher и один из
+        // двух вариантов оверлея:
+        //  - обычный (по умолчанию) - TranslationOverlay, ImGui-окно, приближающее вид родной
+        //    подсказки;
+        //  - экспериментальный (Configuration.UseNativeTranslationWindow) - NativeTranslationOverlayNode,
+        //    настоящие ноды игры через KamiToolKit; сам обновляет себя через OverlayController,
+        //    здесь ничего дополнительно дёргать не нужно - только не рисовать одновременно оба.
         // CurrentEntry живёт ровно один кадр: если ни один отслеживаемый аддон не "подсветил" его
         // заново на этом кадре (подсказка игры уже не показана), ResetForNextFrame его погасит.
-        TranslationOverlay.Draw(hoverWatcher?.Current);
+        if (!Configuration.UseNativeTranslationWindow)
+            TranslationOverlay.Draw(hoverWatcher?.Current);
+
         hoverWatcher?.ResetForNextFrame();
     }
 
