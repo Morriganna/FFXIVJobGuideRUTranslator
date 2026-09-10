@@ -159,11 +159,12 @@ public static class TranslationOverlay
             // немасштабированному размеру шрифта.
             ImGui.SetWindowFontScale(scale);
 
-            // Реальная ширина окна на этот кадр (AlwaysAutoResize уже определил её по прошлому
-            // кадру - см. lastSize) - а не фиксированная BaseWrapWidth, иначе при более широком
-            // окне (например, из-за иконки и длинного имени умения в шапке) текст переносится
-            // раньше правого края окна, и с одной стороны остаётся пустая полоса.
-            var wrapWidth = Math.Max(ImGui.GetContentRegionAvail().X, BaseWrapWidth * scale);
+            // Ширина шапки/строки Каст-Восстановление меряется независимо от текста описания
+            // (см. MeasureFixedRowsWidth) - раньше здесь читалась ширина уже отрисованного окна
+            // (GetContentRegionAvail), а оно само авто-подстраивается под то, что мы в него
+            // рисуем - получалась обратная связь (шире контент -> шире окно -> следующий кадр
+            // берёт ещё большую ширину -> и так вразнос до края экрана).
+            var wrapWidth = Math.Max(BaseWrapWidth * scale, MeasureFixedRowsWidth(info.Entry, hasStats ? stats : null, scale));
 
             DrawHeader(info.Entry, hasStats ? stats : null, textureProvider, scale, wrapWidth);
 
@@ -191,6 +192,39 @@ public static class TranslationOverlay
         ImGui.End();
         ImGui.PopStyleVar(4);
         ImGui.PopStyleColor(4);
+    }
+
+    /// <summary>
+    /// Ширина шапки (иконка+имя, классификация+дальность/радиус) и строки Каст/Восстановление -
+    /// целевая ширина переноса текста описания берётся как максимум этого и BaseWrapWidth, чтобы
+    /// окно не было уже собственной шапки. Не зависит от текста описания и ширины уже
+    /// отрисованного окна - см. комментарий у вызова в Draw.
+    /// </summary>
+    private static float MeasureFixedRowsWidth(TranslationEntry entry, ActionStats? stats, float scale)
+    {
+        var spacing = ImGui.GetStyle().ItemSpacing.X;
+
+        ImGui.SetWindowFontScale(scale * 1.3f);
+        var nameWidth = ImGui.CalcTextSize(entry.EnglishName).X;
+        ImGui.SetWindowFontScale(scale);
+
+        var iconWidth = stats is not null ? IconSize * scale + spacing : 0f;
+
+        var classificationWidth = string.IsNullOrEmpty(entry.Classification) ? 0f : ImGui.CalcTextSize(entry.Classification).X;
+        var rangeWidth = stats is { } s
+            ? ImGui.CalcTextSize($"Дальность {FormatYalms(s.Range)} · Радиус {FormatYalms(s.Radius)}").X
+            : 0f;
+        var secondRowWidth = classificationWidth > 0 && rangeWidth > 0
+            ? classificationWidth + spacing + rangeWidth
+            : classificationWidth + rangeWidth;
+
+        var headerWidth = iconWidth + Math.Max(nameWidth, secondRowWidth);
+
+        var castRecastWidth = stats is { } cr
+            ? 150f * scale + ImGui.CalcTextSize("Восстановление").X + spacing + ImGui.CalcTextSize(FormatSeconds(cr.RecastHundredMs)).X
+            : 0f;
+
+        return Math.Max(headerWidth, castRecastWidth);
     }
 
     /// <summary>Иконка + имя + классификация (слева) и Дальность/Радиус (справа) под именем.</summary>
