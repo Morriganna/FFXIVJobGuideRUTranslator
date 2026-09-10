@@ -143,10 +143,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     public void ApplyRegistrations()
     {
         foreach (var name in registeredAddonNames)
-        {
-            addonLifecycle.UnregisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
             addonLifecycle.UnregisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
-        }
         registeredAddonNames.Clear();
 
         foreach (var rawName in configuration.TargetAddonNames)
@@ -160,7 +157,6 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
             if (!registeredAddonNames.Add(name))
                 continue;
 
-            addonLifecycle.RegisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
             addonLifecycle.RegisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
         }
 
@@ -168,32 +164,25 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     }
 
     /// <summary>
-    /// Только для нативного оверлея (Configuration.UseNativeTranslationWindow): прячет родную
-    /// подсказку ДО отрисовки этого же кадра, а не постфактум. Раньше (см. историю правок)
-    /// прятанье (addon->IsVisible = false) делалось в PostDraw - это на кадр ПОЗЖЕ момента, когда
-    /// игра уже нарисовала окно видимым, и если игра сама периодически заново выставляет
-    /// IsVisible = true, пока курсор ещё наведён (судя по логу - именно так и происходит), окно
-    /// успевает мигнуть видимым каждый такой раз. PreDraw срабатывает непосредственно перед
-    /// отрисовкой ЭТОГО кадра - выставленное здесь IsVisible = false гарантированно долетает до
-    /// рендера, независимо от того, что выставила игра раньше в этом же кадре.
+    /// Прячет родную подсказку ДО отрисовки этого же кадра, а не постфактум (в PostDraw) - раньше
+    /// (см. историю правок) прятанье делалось в PostDraw, на кадр ПОЗЖЕ момента, когда игра уже
+    /// нарисовала окно видимым, и если игра сама периодически заново выставляет IsVisible = true,
+    /// пока курсор ещё наведён (судя по логу - именно так и происходит), окно успевает мигнуть
+    /// видимым каждый такой раз. PreDraw срабатывает непосредственно перед отрисовкой ЭТОГО кадра -
+    /// выставленное здесь IsVisible = false гарантированно долетает до рендера. Прячем ВСЕГДА, как
+    /// только для умения есть перевод - независимо от Configuration.UseNativeTranslationWindow: в
+    /// обычном режиме вместо неё показывается TranslationOverlay (ImGui), в экспериментальном -
+    /// NativeTooltipOverlay (TooltipManager); в обоих случаях родная английская подсказка не нужна.
     /// </summary>
     private void OnAddonPreDraw(AddonEvent type, AddonArgs args)
     {
-        if (!configuration.Enabled || !configuration.UseNativeTranslationWindow)
+        if (!configuration.Enabled)
             return;
 
-        ProcessAddon(args, hideIfMatched: true);
+        ProcessAddon(args);
     }
 
-    private void OnAddonPostDraw(AddonEvent type, AddonArgs args)
-    {
-        if (!configuration.Enabled || configuration.UseNativeTranslationWindow)
-            return; // в нативном режиме всё уже сделано в OnAddonPreDraw
-
-        ProcessAddon(args, hideIfMatched: false);
-    }
-
-    private void ProcessAddon(AddonArgs args, bool hideIfMatched)
+    private void ProcessAddon(AddonArgs args)
     {
         try
         {
@@ -243,13 +232,13 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
                 currentValue = new HoverInfo(entry, addon->X, addon->Y, width, height, addon->Id);
                 lastSeenTicksMs = Environment.TickCount64;
 
-                // Экспериментальный режим (см. Configuration.UseNativeTranslationWindow): прячем
-                // РОДНУЮ подсказку только на кадрах, где для неё точно есть перевод - её ноды при
-                // этом не трогаются вообще, только IsVisible всего окна. В любой другой момент
-                // (другое использование этого же попапа - Materia Extraction и т.п., или умение
-                // без перевода) addon->IsVisible никак не меняем - родное окно ведёт себя как обычно.
-                if (hideIfMatched)
-                    addon->IsVisible = false;
+                // Прячем РОДНУЮ подсказку только на кадрах, где для неё точно есть перевод - её
+                // ноды при этом не трогаются вообще, только IsVisible всего окна. В любой другой
+                // момент (другое использование этого же попапа - Materia Extraction и т.п., или
+                // умение без перевода) addon->IsVisible никак не меняем - родное окно ведёт себя
+                // как обычно. См. доккомментарий OnAddonPreDraw - прячем всегда, оба варианта
+                // оверлея показывают перевод вместо неё, а не рядом с ней.
+                addon->IsVisible = false;
             }
         }
         catch (Exception ex)
@@ -293,10 +282,7 @@ public sealed unsafe class AbilityHoverWatcher : IDisposable
     public void Dispose()
     {
         foreach (var name in registeredAddonNames)
-        {
-            addonLifecycle.UnregisterListener(AddonEvent.PostDraw, name, OnAddonPostDraw);
             addonLifecycle.UnregisterListener(AddonEvent.PreDraw, name, OnAddonPreDraw);
-        }
         registeredAddonNames.Clear();
     }
 }
